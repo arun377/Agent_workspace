@@ -1,23 +1,33 @@
-#agent template 
+#agent template
 
 from langchain_litellm import ChatLiteLLM
 from langgraph.prebuilt import create_react_agent
 
-
-AGENT_NAME="{{agent_name}}"
-PROMPT="{{prompt}}"
-MODEL_STRING ="{{ model}}"
+AGENT_NAME = "{{ agent_name }}"
+PROMPT = "{{ prompt }}"
+MODEL_STRING = "{{ model }}"
 
 model = ChatLiteLLM(model=MODEL_STRING)
 
-agent= create_react_agent(
-model=model,
-tools=[],
-prompt=PROMPT
+agent = create_react_agent(
+    model=model,
+    tools=[],
+    prompt=PROMPT,
 )
 
-def run(input_text: str)-> str:
-    result = agent.invoke({"messages":[{"role":"user","content":input_text}]})
+
+def run(input_text: str) -> str:
+    result = agent.invoke({"messages": [{"role": "user", "content": input_text}]})
     return result["messages"][-1].content
 
 
+if __name__ == "__main__":
+    import sys
+    import json
+
+    input_text = sys.stdin.read()
+    try:
+        result = run(input_text)
+        print(json.dumps({"status": "success", "result": result}))
+    except Exception as e:
+        print(json.dumps({"status": "error", "result": str(e)}))
