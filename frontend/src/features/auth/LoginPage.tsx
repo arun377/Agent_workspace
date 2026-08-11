@@ -34,7 +34,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="relative w-screen h-dvh flex items-center justify-center p-4 overflow-hidden bg-[#ebf0f5] dark:bg-[#050508] text-slate-900 dark:text-slate-100">
+    <div className="relative w-screen h-dvh flex items-center justify-center p-4 overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       {/* Background Ambient Glowing Orbs (Dark mode only) */}
       <div className="hidden dark:block ambient-blob w-[600px] h-[600px] -top-32 -left-32 bg-cyan-600/30" />
       <div className="hidden dark:block ambient-blob w-[500px] h-[500px] bottom-0 -right-20 bg-blue-600/30" />

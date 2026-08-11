@@ -65,7 +65,9 @@ export const DashboardPage: React.FC = () => {
 
   // Currently inspected agent object
   const inspectedAgent = useMemo(() => {
-    return agents.find((a) => a.id === selectedAgentId) || filteredAgents[0] || agents[0] || null;
+    const foundInFiltered = filteredAgents.find((a) => a.id === selectedAgentId);
+    if (foundInFiltered) return foundInFiltered;
+    return filteredAgents[0] || agents.find((a) => a.id === selectedAgentId) || agents[0] || null;
   }, [agents, selectedAgentId, filteredAgents]);
 
   // Statistics
@@ -141,7 +143,7 @@ export const DashboardPage: React.FC = () => {
         {/* CENTER PANE: Main Content & Agent Registry */}
         <main className="lg:col-span-6 space-y-6">
           {/* Hub Banner */}
-          <div className="glass-card rounded p-6 border border-slate-300 dark:border-white/10 bg-radial from-cyan-500/5 via-transparent to-transparent">
+          <div className="glass-card rounded p-6 border border-slate-300 dark:border-white/10">
             <span className="mono text-cyan-900 dark:text-[#00F0FF] block mb-2 font-extrabold">
               [00_ORCHESTRATION_HUB]
             </span>

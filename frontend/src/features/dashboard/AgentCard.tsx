@@ -111,14 +111,21 @@ export const AgentCard: React.FC<AgentCardProps> = ({
             </div>
 
             <div>
-              <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-white group-hover:text-cyan-700 dark:group-hover:text-[#00F0FF] transition-colors line-clamp-1">
-                {agent.name}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm tracking-tight text-white group-hover:text-[#00F0FF] transition-colors line-clamp-1">
+                  {agent.name}
+                </h3>
+                {isSelected && (
+                  <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-[#00F0FF] border border-[#00F0FF]/40 font-bold">
+                    ● SELECTED
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="mono text-[10px] text-slate-800 dark:text-slate-400 font-bold">
+                <span className="mono text-[10px] text-slate-400 font-bold">
                   {agent.category}
                 </span>
-                <span className="mono text-[10px] text-slate-700 dark:text-slate-400 font-bold">
+                <span className="mono text-[10px] text-slate-400 font-bold">
                   T:{agent.temperature}
                 </span>
               </div>
