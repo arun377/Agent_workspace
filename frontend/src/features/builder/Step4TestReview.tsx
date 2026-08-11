@@ -1,0 +1,268 @@
+import React, { useState } from 'react';
+import { UseFormReturn } from 'react-hook-form';
+import { motion } from 'motion/react';
+import {
+  Play,
+  CheckCircle2,
+  Terminal,
+  Bot,
+  Sparkles,
+  RefreshCw,
+} from 'lucide-react';
+import { AgentBuilderFormData } from './AgentBuilderPage';
+import { useAgentStore } from '../../store/useAgentStore';
+import { TestExecutionStep } from '../../types/agent';
+
+interface Step4TestReviewProps {
+  form: UseFormReturn<AgentBuilderFormData>;
+}
+
+export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
+  const { watch } = form;
+  const { tools } = useAgentStore();
+
+  const formData = watch();
+  const selectedTools = tools.filter((t) => (formData.toolIds || []).includes(t.id));
+
+  // Temporary local state for testing execution
+  const [testQuery, setTestQuery] = useState('');
+  const [isRunningTest, setIsRunningTest] = useState(false);
+  const [executionSteps, setExecutionSteps] = useState<TestExecutionStep[]>([]);
+  const [agentResponse, setAgentResponse] = useState<string | null>(null);
+
+  const runMockTest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testQuery.trim() || isRunningTest) return;
+
+    setIsRunningTest(true);
+    setExecutionSteps([]);
+    setAgentResponse(null);
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString();
+
+    // Step 1: Prompt Prepared
+    setTimeout(() => {
+      setExecutionSteps((prev) => [
+        ...prev,
+        {
+          id: 'step-1',
+          type: 'prompt_prep',
+          title: 'Prompt Prepared & Variable Injected',
+          details: `Injected {{user_query}} = "${testQuery}". Model: ${formData.model}, Temp: ${formData.temperature}`,
+          timestamp: timeStr,
+          status: 'success',
+          executionTimeMs: 42,
+        },
+      ]);
+    }, 400);
+
+    // Step 2: Tool Invocation (if tools attached)
+    const activeTool = selectedTools[0];
+    const toolDelay = activeTool ? 1100 : 700;
+
+    if (activeTool) {
+      setTimeout(() => {
+        setExecutionSteps((prev) => [
+          ...prev,
+          {
+            id: 'step-2',
+            type: 'tool_invocation',
+            title: `Invoked Tool [${activeTool.name}]`,
+            details: `Executing ${activeTool.category} query with input params...`,
+            timestamp: timeStr,
+            status: 'running',
+          },
+        ]);
+      }, 900);
+
+      setTimeout(() => {
+        setExecutionSteps((prev) =>
+          prev.map((s) =>
+            s.id === 'step-2'
+              ? {
+                  ...s,
+                  status: 'success',
+                  details: `Received valid response payload from ${activeTool.name} (200 OK)`,
+                  executionTimeMs: 310,
+                }
+              : s
+          )
+        );
+      }, 1600);
+    }
+
+    // Step 3: LLM Generation
+    setTimeout(() => {
+      setExecutionSteps((prev) => [
+        ...prev,
+        {
+          id: 'step-3',
+          type: 'llm_thinking',
+          title: `${formData.model} Model Reasoning`,
+          details: `Processing prompt context & tool outputs via ${formData.model}...`,
+          timestamp: timeStr,
+          status: 'success',
+          executionTimeMs: 480,
+        },
+      ]);
+
+      // Final response text
+      const mockReply = `Hello! Based on your query ("${testQuery}"), here is the agent response processed by **${
+        formData.model
+      }** (Temperature ${formData.temperature}):\n\n` +
+        (activeTool
+          ? `• **Tool Utilized**: ${activeTool.name}\n• **Status**: Execution succeeded in 310ms\n\n`
+          : '') +
+        `**Agent Resolution:**\nI have successfully received your input query and validated the system instructions. All parameters and tool bindings are ready for production deployment.`;
+
+      setAgentResponse(mockReply);
+      setIsRunningTest(false);
+    }, toolDelay + 1200);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Configuration Summary Card */}
+      <div className="glass-card rounded-2xl p-5 border border-slate-200 dark:border-white/5 space-y-4">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-cyan-700 dark:text-cyan-400" /> Configuration Review
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5">
+            <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold block uppercase">Agent Name</span>
+            <span className="font-extrabold text-slate-900 dark:text-slate-100 line-clamp-1">
+              {formData.name || 'Untitled Agent'}
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5">
+            <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold block uppercase">Engine Model</span>
+            <span className="font-extrabold text-cyan-800 dark:text-cyan-400 font-mono">
+              {formData.model}
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5">
+            <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold block uppercase">Temperature</span>
+            <span className="font-extrabold text-amber-800 dark:text-amber-500 font-mono">{formData.temperature}</span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5">
+            <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold block uppercase">Attached Tools</span>
+            <span className="font-extrabold text-emerald-800 dark:text-emerald-400">
+              {selectedTools.length} Tools
+            </span>
+          </div>
+        </div>
+
+        {/* Attached Tools Pills */}
+        {selectedTools.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[11px] text-slate-700 dark:text-slate-400 font-bold mr-1">Bound Tools:</span>
+            {selectedTools.map((t) => (
+              <span
+                key={t.id}
+                className="px-2.5 py-0.5 rounded-lg bg-cyan-500/10 text-cyan-800 dark:text-cyan-400 border border-cyan-500/30 text-[11px] font-bold"
+              >
+                {t.name}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Test Playground Workspace */}
+      <div className="glass-card rounded-2xl p-5 border border-slate-200 dark:border-white/5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Bot className="w-4 h-4 text-cyan-700 dark:text-cyan-400" /> Interactive Test Playground
+            </h3>
+            <p className="text-[11px] text-slate-700 dark:text-slate-400 mt-0.5 font-normal">
+              Simulate a user query to observe real-time step-by-step execution traces and model response.
+            </p>
+          </div>
+          <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-400 border border-amber-500/30">
+            Temporary Sandbox (Not Saved)
+          </span>
+        </div>
+
+        {/* Test Input Form */}
+        <form onSubmit={runMockTest} className="flex gap-2">
+          <input
+            type="text"
+            value={testQuery}
+            onChange={(e) => setTestQuery(e.target.value)}
+            placeholder="Type a test query (e.g. 'How do I reset my password and check recent orders?')"
+            className="flex-1 px-4 py-2.5 rounded-xl text-xs glass-input text-slate-900 dark:text-slate-100"
+          />
+          <button
+            type="submit"
+            disabled={isRunningTest || !testQuery.trim()}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white shadow-md shadow-cyan-500/20 transition-all"
+          >
+            {isRunningTest ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4 fill-current" />
+            )}
+            <span>{isRunningTest ? 'Executing...' : 'Run Test'}</span>
+          </button>
+        </form>
+
+        {/* Execution Trace Timeline */}
+        {executionSteps.length > 0 && (
+          <div className="mt-4 p-4 rounded-xl popup-solid text-slate-900 dark:text-slate-100 space-y-3 font-mono text-xs">
+            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2">
+              <span className="flex items-center gap-1.5 font-bold text-cyan-600 dark:text-cyan-400">
+                <Terminal className="w-3.5 h-3.5" /> Execution Trace Logs
+              </span>
+              <span>Trace ID: {Math.random().toString(36).substring(2, 9)}</span>
+            </div>
+
+            <div className="space-y-2.5 pt-1">
+              {executionSteps.map((step) => (
+                <div key={step.id} className="flex items-start gap-3">
+                  <div className="mt-0.5">
+                    {step.status === 'running' ? (
+                      <RefreshCw className="w-4 h-4 text-amber-500 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-slate-800 dark:text-slate-200">{step.title}</p>
+                      {step.executionTimeMs && (
+                        <span className="text-[10px] text-slate-500">{step.executionTimeMs}ms</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">{step.details}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Simulated Response Box */}
+        {agentResponse && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 p-4 rounded-xl popup-solid border border-cyan-500/30 text-slate-900 dark:text-slate-100 space-y-2"
+          >
+            <div className="flex items-center gap-2 text-xs font-bold text-cyan-600 dark:text-cyan-400">
+              <Bot className="w-4 h-4" /> Agent Output:
+            </div>
+            <div className="text-xs leading-relaxed whitespace-pre-wrap font-sans">
+              {agentResponse}
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+};
