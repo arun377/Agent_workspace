@@ -4,6 +4,7 @@ from langchain_core.tools import tool
 @tool
 def calculator(expression: str) -> str:
     """Evaluate a basic arithmetic expression, e.g. '2 + 2'."""
+    print("calcualtor called")
     return str(eval(expression))
 
 

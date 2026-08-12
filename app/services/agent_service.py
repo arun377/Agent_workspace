@@ -12,7 +12,7 @@ def sanitize_agent_name(name: str) -> str:
     return name
 
 
-def generate_agent(name: str, prompt: str, model: str) -> str:
+def generate_agent(name: str, prompt: str, model: str, tools : list[str]) -> str:
     safe_name = sanitize_agent_name(name)
     
     template = env.get_template("agent_template.py.jinja")
@@ -20,15 +20,14 @@ def generate_agent(name: str, prompt: str, model: str) -> str:
         agent_name=safe_name,
         prompt=prompt,
         model=model,
+        tools=tools
     )
     
     output_dir = Path("generated_agents") / safe_name
     output_dir.mkdir(parents=True, exist_ok=True)
-    # TODO: create output_dir if it doesn't exist — which pathlib method does that?
     
     output_file = output_dir / "agent.py"
     output_file.write_text(rendered_code)
 
-    # TODO: write rendered_code to output_file — what's the simplest way to write text to a file in Python?
     
     return str(output_file)

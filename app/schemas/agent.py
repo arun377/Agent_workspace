@@ -3,7 +3,8 @@ from pydantic import BaseModel
 class AgentCreateRequest(BaseModel):
     name: str
     prompt: str
-    model:str = "gemini-3.5-flash"
+    tools: list[str] = []
+    model:str = "gemini/gemini-3.5-flash"
 
 class AgentCreateResponse(BaseModel):
     name:str

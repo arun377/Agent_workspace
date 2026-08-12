@@ -2,3 +2,5 @@
 .venv/
 .env
 generated_agents/
+__pycache__/
+app/__pycache__/

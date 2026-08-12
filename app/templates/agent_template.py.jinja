@@ -1,23 +1,45 @@
 #agent template
 
+import asyncio
 from langchain_litellm import ChatLiteLLM
 from langgraph.prebuilt import create_react_agent
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from app.tools.builtin.builtin import BUILTIN_TOOLS
+from app.tools.mcp_servers import MCP_SERVERS
 
 AGENT_NAME = "{{ agent_name }}"
 PROMPT = "{{ prompt }}"
 MODEL_STRING = "{{ model }}"
+SELECTED_TOOL_IDS = {{ tools }}
 
 model = ChatLiteLLM(model=MODEL_STRING)
 
-agent = create_react_agent(
-    model=model,
-    tools=[],
-    prompt=PROMPT,
-)
+
+async def build_tools():
+    tools = []
+    mcp_ids_by_server = {}
+
+    for tool_id in SELECTED_TOOL_IDS:
+        if tool_id in BUILTIN_TOOLS:
+            tools.append(BUILTIN_TOOLS[tool_id])
+        elif ":" in tool_id:
+            server_id, tool_name = tool_id.split(":", 1)
+            mcp_ids_by_server.setdefault(server_id, []).append(tool_name)
+
+    for server_id, tool_names in mcp_ids_by_server.items():
+        client = MultiServerMCPClient({server_id: MCP_SERVERS[server_id]})
+        server_tools = await client.get_tools()
+        for t in server_tools:
+            if t.name in tool_names:
+                tools.append(t)
+
+    return tools
 
 
-def run(input_text: str) -> str:
-    result = agent.invoke({"messages": [{"role": "user", "content": input_text}]})
+async def run(input_text: str) -> str:
+    tools = await build_tools()
+    agent = create_react_agent(model=model, tools=tools, prompt=PROMPT)
+    result = await agent.ainvoke({"messages": [{"role": "user", "content": input_text}]})
     return result["messages"][-1].content
 
 
@@ -27,7 +49,7 @@ if __name__ == "__main__":
 
     input_text = sys.stdin.read()
     try:
-        result = run(input_text)
+        result = asyncio.run(run(input_text))
         print(json.dumps({"status": "success", "result": result}))
     except Exception as e:
         print(json.dumps({"status": "error", "result": str(e)}))
