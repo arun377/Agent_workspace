@@ -17,10 +17,12 @@ def run_agent(name: str, input_text: str) -> dict:
         timeout=60,
     )
 
+
     if process.returncode != 0:
         raise RuntimeError(f"Agent process failed: {process.stderr}")
     
     print("RAW STDOUT:", repr(process.stdout))  # temporary debug line
+    print("RAW STDERR:", repr(process.stderr)) 
 
     lines = process.stdout.strip().splitlines()
     last_line = lines[-1] if lines else ""

@@ -6,6 +6,8 @@ from langgraph.prebuilt import create_react_agent
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from app.tools.builtin.builtin import BUILTIN_TOOLS
 from app.tools.mcp_servers import MCP_SERVERS
+import sys
+import json
 
 AGENT_NAME = "{{ agent_name }}"
 PROMPT = "{{ prompt }}"
@@ -27,11 +29,15 @@ async def build_tools():
             mcp_ids_by_server.setdefault(server_id, []).append(tool_name)
 
     for server_id, tool_names in mcp_ids_by_server.items():
+        print(f"CONNECTING TO MCP SERVER: {server_id}", file=sys.stderr)
+        
         client = MultiServerMCPClient({server_id: MCP_SERVERS[server_id]})
         server_tools = await client.get_tools()
         for t in server_tools:
             if t.name in tool_names:
                 tools.append(t)
+        print(f"MCP TOOLS FETCHED: {[t.name for t in server_tools]}", file=sys.stderr)
+        
 
     return tools
 
@@ -44,8 +50,7 @@ async def run(input_text: str) -> str:
 
 
 if __name__ == "__main__":
-    import sys
-    import json
+    
 
     input_text = sys.stdin.read()
     try:
