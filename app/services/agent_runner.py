@@ -14,7 +14,7 @@ def run_agent(name: str, input_text: str) -> dict:
         input=input_text,
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=100,
     )
 
 

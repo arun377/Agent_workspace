@@ -33,4 +33,6 @@ def test_agent(name: str, request: AgentRunRequest):
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    return AgentRunResponse(**result)
+    output = result["result"]
+    answer_text = output["answer"] if isinstance(output, dict) else output
+    return AgentRunResponse(status=result["status"], result=answer_text)
