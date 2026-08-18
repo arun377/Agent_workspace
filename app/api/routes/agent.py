@@ -8,6 +8,19 @@ import subprocess
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
+@router.get("/")
+def get_agents():
+    from app.services.agent_service import get_all_agents
+    return get_all_agents()
+
+@router.get("/{name}")
+def get_agent(name: str):
+    from app.services.agent_service import get_agent_details
+    try:
+        return get_agent_details(name)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
 @router.post("/",response_model=AgentCreateResponse)
 def create_agent(request:AgentCreateRequest):
     file_path=generate_agent(

@@ -39,3 +39,46 @@ def generate_agent(name: str, prompt: str, model: str, tools: list[str] = None, 
     # TODO: write rendered_code to output_file — what's the simplest way to write text to a file in Python?
     
     return str(output_file)
+
+import ast
+
+def parse_agent_file(file_path: Path) -> dict:
+    if not file_path.exists():
+        return None
+    try:
+        content = file_path.read_text(encoding="utf-8")
+        parsed = ast.parse(content)
+        details = {}
+        for node in parsed.body:
+            if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+                name = node.targets[0].id
+                if name in ["AGENT_NAME", "PROMPT", "MODEL_STRING", "TOOL_NAMES", "MCP_SERVERS"]:
+                    try:
+                        details[name] = ast.literal_eval(node.value)
+                    except Exception:
+                        pass
+        return details
+    except Exception as e:
+        return {"error": str(e)}
+
+def get_all_agents() -> list[dict]:
+    agents_dir = Path("generated_agents")
+    if not agents_dir.exists():
+        return []
+    agents = []
+    for d in agents_dir.iterdir():
+        if d.is_dir():
+            agent_file = d / "agent.py"
+            if agent_file.exists():
+                details = parse_agent_file(agent_file)
+                if details:
+                    agents.append(details)
+    return agents
+
+def get_agent_details(name: str) -> dict:
+    safe_name = sanitize_agent_name(name)
+    agent_file = Path("generated_agents") / safe_name / "agent.py"
+    details = parse_agent_file(agent_file)
+    if not details:
+        raise ValueError(f"Agent {name} not found")
+    return details
