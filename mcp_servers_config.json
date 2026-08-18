@@ -2,5 +2,9 @@
     {
         "url": "http://127.0.0.1:8081/sse",
         "description": "Local Testing MCP Server"
+    },
+    {
+        "url": "10.73.90.198:8081/sse",
+        "description": "Local Testing MCP Server"
     }
 ]
