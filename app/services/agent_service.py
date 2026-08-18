@@ -12,7 +12,12 @@ def sanitize_agent_name(name: str) -> str:
     return name
 
 
-def generate_agent(name: str, prompt: str, model: str) -> str:
+def generate_agent(name: str, prompt: str, model: str, tools: list[str] = None, mcp_servers: list[str] = None) -> str:
+    if tools is None:
+        tools = []
+    if mcp_servers is None:
+        mcp_servers = []
+    
     safe_name = sanitize_agent_name(name)
     
     template = env.get_template("agent_template.py.jinja")
@@ -20,6 +25,8 @@ def generate_agent(name: str, prompt: str, model: str) -> str:
         agent_name=safe_name,
         prompt=prompt,
         model=model,
+        tools=tools,
+        mcp_servers=mcp_servers,
     )
     
     output_dir = Path("generated_agents") / safe_name

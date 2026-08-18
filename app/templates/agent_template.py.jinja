@@ -2,32 +2,91 @@
 
 from langchain_litellm import ChatLiteLLM
 from langgraph.prebuilt import create_react_agent
+import sys
+import os
+import asyncio
+import json
+
+# Add the workspace root to sys.path so we can import app.tools.registry
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from app.tools.registry import get_tools_by_names
+
+try:
+    from langchain_mcp_adapters.client import MultiServerMCPClient
+    from langchain_mcp_adapters.sessions import SSEConnection
+except ImportError:
+    pass  # We will handle missing MCP package later if needed
 
 AGENT_NAME = "{{ agent_name }}"
 PROMPT = "{{ prompt }}"
 MODEL_STRING = "{{ model }}"
+TOOL_NAMES = {{ tools | tojson }}
+MCP_SERVERS = {{ mcp_servers | default([]) | tojson }}
 
-model = ChatLiteLLM(model=MODEL_STRING)
+async def run(input_text: str) -> str:
+    model = ChatLiteLLM(model=MODEL_STRING)
+    agent_tools = get_tools_by_names(TOOL_NAMES)
+    
+    if MCP_SERVERS:
+        connections = {}
+        for i, url in enumerate(MCP_SERVERS):
+            connections[f"mcp_server_{i}"] = {
+                "transport": "sse",
+                "url": url
+            }
+            
+        client = MultiServerMCPClient(connections)
+        mcp_tools = await client.get_tools()
+        agent_tools.extend(mcp_tools)
+        
+        agent = create_react_agent(
+            model=model,
+            tools=agent_tools,
+            prompt=PROMPT,
+        )
+        
+        result = await agent.ainvoke({"messages": [{"role": "user", "content": input_text}]})
+        
+        # We need to manually close the client if it has a close method
+        if hasattr(client, "close"):
+            await client.close()
+        elif hasattr(client, "disconnect"):
+            await client.disconnect()
+            
+        return process_result(result)
+    else:
+        agent = create_react_agent(
+            model=model,
+            tools=agent_tools,
+            prompt=PROMPT,
+        )
+        result = await agent.ainvoke({"messages": [{"role": "user", "content": input_text}]})
+        return process_result(result)
 
-agent = create_react_agent(
-    model=model,
-    tools=[],
-    prompt=PROMPT,
-)
 
-
-def run(input_text: str) -> str:
-    result = agent.invoke({"messages": [{"role": "user", "content": input_text}]})
-    return result["messages"][-1].content
-
+def process_result(result) -> str:
+    for msg in result["messages"]:
+        if hasattr(msg, "tool_calls") and msg.tool_calls:
+            for tc in msg.tool_calls:
+                print(f"DEBUG: Agent requested tool: {tc['name']} with args {tc['args']}", file=sys.stderr)
+        elif getattr(msg, "type", "") == "tool" or msg.__class__.__name__ == "ToolMessage":
+            print(f"DEBUG: Tool '{msg.name}' returned: {msg.content}", file=sys.stderr)
+    
+    content = result["messages"][-1].content
+    if isinstance(content, list):
+        text_parts = []
+        for part in content:
+            if isinstance(part, dict) and "text" in part:
+                text_parts.append(part["text"])
+            elif isinstance(part, str):
+                text_parts.append(part)
+        return "\n".join(text_parts)
+    return str(content)
 
 if __name__ == "__main__":
-    import sys
-    import json
-
     input_text = sys.stdin.read()
     try:
-        result = run(input_text)
+        result = asyncio.run(run(input_text))
         print(json.dumps({"status": "success", "result": result}))
     except Exception as e:
         print(json.dumps({"status": "error", "result": str(e)}))

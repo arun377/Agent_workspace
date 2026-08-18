@@ -4,6 +4,8 @@ class AgentCreateRequest(BaseModel):
     name: str
     prompt: str
     model:str = "gemini-3.5-flash"
+    tools: list[str] = []
+    mcp_servers: list[str] = []
 
 class AgentCreateResponse(BaseModel):
     name:str

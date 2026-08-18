@@ -1,17 +1,15 @@
 # Python & Virtual Environment
 .venv/
-venv/
-__pycache__/
+app/__pycache__/
+app/schemas/__pycache__/
+app/services/__pycache__/
 *.pyc
 *.pyo
 *.pyd
-.pytest_cache/
-.mypy_cache/
 .ruff_cache/
 generated_agents/
 
 # Node & Frontend
-node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/build/

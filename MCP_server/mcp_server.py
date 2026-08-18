@@ -221,6 +221,6 @@ async def scrape_website(url: str) -> str:
 if __name__ == "__main__":
     # Start the server using SSE (Server-Sent Events)
     # host="0.0.0.0" allows external devices on your network to connect
-    # port=8000 is the HTTP port they will connect to
+    # port=8081 is the HTTP port they will connect to
     print("Starting MCP Server on SSE...")
-    mcp.run(transport="sse", host="0.0.0.0", port=8000)
+    mcp.run(transport="sse", host="0.0.0.0", port=8081)

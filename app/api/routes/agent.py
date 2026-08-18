@@ -13,7 +13,9 @@ def create_agent(request:AgentCreateRequest):
     file_path=generate_agent(
         name = request.name,
         prompt=request.prompt,
-        model=request.model
+        model=request.model,
+        tools=request.tools,
+        mcp_servers=request.mcp_servers,
     )
     return AgentCreateResponse(name=request.name, file_path=file_path)
 
