@@ -7,6 +7,12 @@ class AgentCreateRequest(BaseModel):
     tools: list[str] = []
     mcp_servers: list[str] = []
 
+class AgentUpdateRequest(BaseModel):
+    prompt: str
+    model:str = "gemini-3.5-flash"
+    tools: list[str] = []
+    mcp_servers: list[str] = []
+
 class AgentCreateResponse(BaseModel):
     name:str
     file_path:str
