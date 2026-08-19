@@ -26,19 +26,12 @@ import { useToast } from '../../components/ui/Toast';
 
 const agentFormSchema = z.object({
   name: z.string().min(2, 'Agent name must be at least 2 characters'),
-  description: z.string().min(5, 'Description must be at least 5 characters'),
-  category: z.string().min(1, 'Please select a category'),
-  model: z.enum([
-    'gemini-2.5-pro',
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gpt-4o',
-    'claude-3-5-sonnet',
-    'deepseek-r1',
-  ]),
-  temperature: z.number().min(0).max(1),
+  description: z.string().optional(),
+  category: z.string().optional(),
+  model: z.string().min(1, 'Please select a model'),
   systemPrompt: z.string().min(10, 'System instructions must be at least 10 characters'),
   toolIds: z.array(z.string()),
+  mcpServers: z.array(z.string()).optional(),
 });
 
 export type AgentBuilderFormData = z.infer<typeof agentFormSchema>;
@@ -46,7 +39,7 @@ export type AgentBuilderFormData = z.infer<typeof agentFormSchema>;
 export const AgentBuilderPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
-  const { agents, addAgent, updateAgent } = useAgentStore();
+  const { agents, createAgent, updateAgent } = useAgentStore();
   const { showToast } = useToast();
 
   const isEditing = Boolean(id);
@@ -60,12 +53,12 @@ export const AgentBuilderPage: React.FC = () => {
       name: existingAgent?.name || '',
       description: existingAgent?.description || '',
       category: existingAgent?.category || 'Customer Support',
-      model: existingAgent?.model || 'gemini-2.5-flash',
-      temperature: existingAgent?.temperature ?? 0.3,
+      model: existingAgent?.model || 'gemini/gemini-2.5-flash',
       systemPrompt:
         existingAgent?.systemPrompt ||
-        `You are a specialized AI assistant.\nYour goal is to assist users with query: {{user_query}}.\nAlways maintain a professional tone.`,
-      toolIds: existingAgent?.toolIds || ['tool-duckduckgo'],
+        `You are a specialized AI assistant.\nYour goal is to assist users with query.\nAlways maintain a professional tone.`,
+      toolIds: existingAgent?.toolIds || [],
+      mcpServers: existingAgent?.mcpServers || [],
     },
   });
 
@@ -77,14 +70,14 @@ export const AgentBuilderPage: React.FC = () => {
         description: existingAgent.description,
         category: existingAgent.category,
         model: existingAgent.model,
-        temperature: existingAgent.temperature,
         systemPrompt: existingAgent.systemPrompt,
         toolIds: existingAgent.toolIds,
+        mcpServers: existingAgent.mcpServers,
       });
     }
   }, [existingAgent, form]);
 
-  const handleSave = (statusToSave: AgentStatus) => {
+  const handleSave = async (statusToSave: AgentStatus) => {
     const values = form.getValues();
 
     // Trigger validation
@@ -96,21 +89,29 @@ export const AgentBuilderPage: React.FC = () => {
       return;
     }
 
-    if (isEditing && existingAgent) {
-      updateAgent(existingAgent.id, {
-        ...values,
-        status: statusToSave,
-      });
-      showToast('Agent Saved', `Updated "${values.name}" as ${statusToSave}.`, 'success');
-    } else {
-      addAgent({
-        ...values,
-        status: statusToSave,
-      });
-      showToast('Agent Created!', `Created "${values.name}" (${statusToSave}).`, 'success');
+    try {
+      if (isEditing && existingAgent) {
+        updateAgent(existingAgent.id, {
+          ...values,
+          description: values.description || '',
+          category: values.category || 'Custom',
+          status: statusToSave,
+        });
+        showToast('Agent Saved', `Updated "${values.name}" as ${statusToSave}.`, 'success');
+      } else {
+        await createAgent({
+          ...values,
+          description: values.description || '',
+          category: values.category || 'Custom',
+          mcpServers: values.mcpServers || [],
+          status: statusToSave,
+        });
+        showToast('Agent Created!', `Created "${values.name}" (${statusToSave}).`, 'success');
+      }
+      navigate('/agents');
+    } catch (err) {
+      showToast('Error', 'Failed to save the agent. Please try again.', 'error');
     }
-
-    navigate('/agents');
   };
 
   const STEPS = [

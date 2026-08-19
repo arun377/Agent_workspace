@@ -1,15 +1,20 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Agent, Tool, CustomToolFormData, AgentStatus, AIModel } from '../types/agent';
+import { Agent, Tool, CustomToolFormData, AgentStatus, AIModel, McpServer } from '../types/agent';
 
 interface AgentState {
   agents: Agent[];
   tools: Tool[];
+  mcpServers: McpServer[];
   isLoading: boolean;
+  isToolsLoading: boolean;
+  isMcpServersLoading: boolean;
   error: string | null;
   // Actions
   fetchAgents: () => Promise<void>;
-  addAgent: (agent: Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>) => Agent;
+  fetchTools: () => Promise<void>;
+  fetchMcpServers: () => Promise<void>;
+  createAgent: (agent: Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Agent>;
   updateAgent: (id: string, agent: Partial<Omit<Agent, 'id' | 'createdAt'>>) => void;
   duplicateAgent: (id: string) => Agent | null;
   deleteAgent: (id: string) => void;
@@ -32,7 +37,10 @@ export const useAgentStore = create<AgentState>()(
     (set, get) => ({
       agents: [],
       tools: [],
+      mcpServers: [],
       isLoading: false,
+      isToolsLoading: false,
+      isMcpServersLoading: false,
       error: null,
 
       fetchAgents: async () => {
@@ -49,10 +57,10 @@ export const useAgentStore = create<AgentState>()(
             description: '',
             category: 'Custom',
             status: 'published',
-            model: (item.MODEL_STRING || 'gpt-4o') as AIModel,
-            temperature: 0.3,
+            model: (item.MODEL_STRING || 'gemini-2.5-pro') as AIModel,
             systemPrompt: item.PROMPT || '',
             toolIds: item.TOOL_NAMES || [],
+            mcpServers: item.MCP_SERVERS || [],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             avatarColor: AVATAR_GRADIENTS[Math.floor(Math.random() * AVATAR_GRADIENTS.length)],
@@ -65,24 +73,93 @@ export const useAgentStore = create<AgentState>()(
         }
       },
 
-      addAgent: (agentData) => {
-        const now = new Date().toISOString();
-        const id = `agent-${Date.now()}`;
-        const randomGradient = AVATAR_GRADIENTS[Math.floor(Math.random() * AVATAR_GRADIENTS.length)];
+      fetchTools: async () => {
+        set({ isToolsLoading: true, error: null });
+        try {
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+          const response = await fetch(`${baseUrl}/tools/`);
+          if (!response.ok) throw new Error('Failed to fetch tools');
+          const data = await response.json();
+          
+          // Map backend tools to frontend tools format
+          const mappedTools: Tool[] = data.map((item: any) => ({
+            id: item.name,
+            name: item.name,
+            description: item.description || `Tool: ${item.name}`,
+            category: 'utility',
+            iconName: 'Wrench',
+          }));
 
-        const newAgent: Agent = {
-          ...agentData,
-          id,
-          createdAt: now,
-          updatedAt: now,
-          avatarColor: agentData.avatarColor || randomGradient,
-        };
+          set({ tools: mappedTools, isToolsLoading: false });
+        } catch (error: any) {
+          console.error('Error fetching tools:', error);
+          set({ error: error.message, isToolsLoading: false });
+        }
+      },
 
-        set((state) => ({
-          agents: [newAgent, ...state.agents],
-        }));
+      fetchMcpServers: async () => {
+        set({ isMcpServersLoading: true, error: null });
+        try {
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+          const response = await fetch(`${baseUrl}/tools/mcp_servers`);
+          if (!response.ok) throw new Error('Failed to fetch MCP servers');
+          const data = await response.json();
+          
+          set({ mcpServers: data, isMcpServersLoading: false });
+        } catch (error: any) {
+          console.error('Error fetching MCP servers:', error);
+          set({ error: error.message, isMcpServersLoading: false });
+        }
+      },
 
-        return newAgent;
+      createAgent: async (agentData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+          
+          const payload = {
+            name: agentData.name,
+            prompt: agentData.systemPrompt,
+            model: agentData.model,
+            tools: agentData.toolIds,
+            mcp_servers: agentData.mcpServers || [],
+          };
+
+          const response = await fetch(`${baseUrl}/agents/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) throw new Error('Failed to create agent');
+          
+          const responseData = await response.json();
+
+          const now = new Date().toISOString();
+          const randomGradient = AVATAR_GRADIENTS[Math.floor(Math.random() * AVATAR_GRADIENTS.length)];
+
+          const newAgent: Agent = {
+            ...agentData,
+            id: responseData.name, // The backend responds with name, use it as ID
+            name: responseData.name,
+            createdAt: now,
+            updatedAt: now,
+            avatarColor: agentData.avatarColor || randomGradient,
+          };
+
+          set((state) => ({
+            agents: [newAgent, ...state.agents],
+            isLoading: false,
+          }));
+
+          return newAgent;
+        } catch (error: any) {
+          console.error('Error creating agent:', error);
+          set({ error: error.message, isLoading: false });
+          throw error;
+        }
       },
 
       updateAgent: (id, agentData) => {
@@ -166,11 +243,16 @@ export const useAgentStore = create<AgentState>()(
         set({
           agents: [],
           tools: [],
+          mcpServers: [],
         });
       },
     }),
     {
       name: 'agent-studio-agents-storage-v2',
+      partialize: (state) => ({
+        // We only persist agents; tools and mcpServers should be fetched live
+        agents: state.agents,
+      }),
     }
   )
 );

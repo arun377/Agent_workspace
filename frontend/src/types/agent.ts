@@ -1,12 +1,6 @@
 export type AgentStatus = 'draft' | 'published';
 
-export type AIModel =
-  | 'gemini-2.5-pro'
-  | 'gemini-2.5-flash'
-  | 'gemini-2.0-flash'
-  | 'gpt-4o'
-  | 'claude-3-5-sonnet'
-  | 'deepseek-r1';
+export type AIModel = string;
 
 export type ToolCategory = 'search' | 'scraping' | 'utility' | 'data' | 'communication' | 'custom';
 
@@ -23,6 +17,11 @@ export interface Tool {
   schema?: string;
 }
 
+export interface McpServer {
+  url: string;
+  description?: string;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -30,10 +29,10 @@ export interface Agent {
   category: string;
   status: AgentStatus;
   model: AIModel;
-  temperature: number; // 0.0 to 1.0
   maxTokens?: number;
   systemPrompt: string;
   toolIds: string[];
+  mcpServers?: string[]; // Array of server URLs
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
   avatarColor?: string; // Gradient accent class

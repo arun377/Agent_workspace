@@ -48,8 +48,8 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
         {
           id: 'step-1',
           type: 'prompt_prep',
-          title: 'Prompt Prepared & Variable Injected',
-          details: `Injected {{user_query}} = "${testQuery}". Model: ${formData.model}, Temp: ${formData.temperature}`,
+          title: 'Prompt Prepared',
+          details: `Injected user query = "${testQuery}". Model: ${formData.model}`,
           timestamp: timeStr,
           status: 'success',
           executionTimeMs: 42,
@@ -110,7 +110,7 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
       // Final response text
       const mockReply = `Hello! Based on your query ("${testQuery}"), here is the agent response processed by **${
         formData.model
-      }** (Temperature ${formData.temperature}):\n\n` +
+      }**:\n\n` +
         (activeTool
           ? `• **Tool Utilized**: ${activeTool.name}\n• **Status**: Execution succeeded in 310ms\n\n`
           : '') +
@@ -145,32 +145,50 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
           </div>
 
           <div className="p-3.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800">
-            <span className="text-[10px] text-zinc-500 font-semibold block uppercase tracking-wider mb-1">Temperature</span>
-            <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono">{formData.temperature}</span>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800">
             <span className="text-[10px] text-zinc-500 font-semibold block uppercase tracking-wider mb-1">Attached Tools</span>
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
               {selectedTools.length} Tools
             </span>
           </div>
+
+          <div className="p-3.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800">
+            <span className="text-[10px] text-zinc-500 font-semibold block uppercase tracking-wider mb-1">MCP Servers</span>
+            <span className="font-bold text-emerald-600 dark:text-emerald-400">
+              {formData.mcpServers?.length || 0} Servers
+            </span>
+          </div>
         </div>
 
-        {/* Attached Tools Pills */}
-        {selectedTools.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <span className="text-[11px] text-zinc-500 font-semibold mr-1">Bound Tools:</span>
-            {selectedTools.map((t) => (
-              <span
-                key={t.id}
-                className="px-2.5 py-0.5 rounded-md bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 text-[11px] font-semibold"
-              >
-                {t.name}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Attached Items Pills */}
+        <div className="space-y-2">
+          {selectedTools.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[11px] text-zinc-500 font-semibold mr-1">Bound Tools:</span>
+              {selectedTools.map((t) => (
+                <span
+                  key={t.id}
+                  className="px-2.5 py-0.5 rounded-md bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 text-[11px] font-semibold"
+                >
+                  {t.name}
+                </span>
+              ))}
+            </div>
+          )}
+          
+          {(formData.mcpServers?.length ?? 0) > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[11px] text-zinc-500 font-semibold mr-1">MCP Servers:</span>
+              {formData.mcpServers!.map((url) => (
+                <span
+                  key={url}
+                  className="px-2.5 py-0.5 rounded-md bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 text-[11px] font-semibold"
+                >
+                  {url}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Test Playground Workspace */}
