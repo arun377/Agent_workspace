@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Agent, Tool, CustomToolFormData, AgentStatus } from '../types/agent';
-import { INITIAL_AGENTS, INITIAL_TOOLS } from '../data/mockData';
+import { Agent, Tool, CustomToolFormData, AgentStatus, AIModel } from '../types/agent';
 
 interface AgentState {
   agents: Agent[];
   tools: Tool[];
+  isLoading: boolean;
+  error: string | null;
   // Actions
+  fetchAgents: () => Promise<void>;
   addAgent: (agent: Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>) => Agent;
   updateAgent: (id: string, agent: Partial<Omit<Agent, 'id' | 'createdAt'>>) => void;
   duplicateAgent: (id: string) => Agent | null;
@@ -28,8 +30,40 @@ const AVATAR_GRADIENTS = [
 export const useAgentStore = create<AgentState>()(
   persist(
     (set, get) => ({
-      agents: INITIAL_AGENTS,
-      tools: INITIAL_TOOLS,
+      agents: [],
+      tools: [],
+      isLoading: false,
+      error: null,
+
+      fetchAgents: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+          const response = await fetch(`${baseUrl}/agents/`);
+          if (!response.ok) throw new Error('Failed to fetch agents');
+          const data = await response.json();
+          
+          const mappedAgents: Agent[] = data.map((item: any) => ({
+            id: item.AGENT_NAME,
+            name: item.AGENT_NAME,
+            description: '',
+            category: 'Custom',
+            status: 'published',
+            model: (item.MODEL_STRING || 'gpt-4o') as AIModel,
+            temperature: 0.3,
+            systemPrompt: item.PROMPT || '',
+            toolIds: item.TOOL_NAMES || [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            avatarColor: AVATAR_GRADIENTS[Math.floor(Math.random() * AVATAR_GRADIENTS.length)],
+          }));
+
+          set({ agents: mappedAgents, isLoading: false });
+        } catch (error: any) {
+          console.error('Error fetching agents:', error);
+          set({ error: error.message, isLoading: false });
+        }
+      },
 
       addAgent: (agentData) => {
         const now = new Date().toISOString();
@@ -130,8 +164,8 @@ export const useAgentStore = create<AgentState>()(
 
       resetToDefaults: () => {
         set({
-          agents: INITIAL_AGENTS,
-          tools: INITIAL_TOOLS,
+          agents: [],
+          tools: [],
         });
       },
     }),

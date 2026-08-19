@@ -1,7 +1,7 @@
 import React from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { Cpu, Thermometer } from 'lucide-react';
-import { AI_MODELS_INFO, CATEGORIES } from '../../data/mockData';
+import { AI_MODELS_INFO, CATEGORIES } from '../../data/constants';
 import { AgentBuilderFormData } from './AgentBuilderPage';
 
 interface Step1DetailsProps {

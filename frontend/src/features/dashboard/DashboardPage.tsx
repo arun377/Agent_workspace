@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -22,8 +22,12 @@ import { useToast } from '../../components/ui/Toast';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { agents, tools, deleteAgent, resetToDefaults } = useAgentStore();
+  const { agents, tools, deleteAgent, resetToDefaults, fetchAgents, isLoading, error } = useAgentStore();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,9 +53,9 @@ export const DashboardPage: React.FC = () => {
   const filteredAgents = useMemo(() => {
     return agents.filter((agent) => {
       const matchesSearch =
-        agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        agent.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        agent.model.toLowerCase().includes(searchQuery.toLowerCase());
+        (agent.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (agent.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (agent.model || '').toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === 'all' || agent.status === statusFilter;
       const matchesCategory = selectedCategory === 'All Categories' || agent.category === selectedCategory;
