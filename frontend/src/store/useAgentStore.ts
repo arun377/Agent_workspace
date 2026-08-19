@@ -14,6 +14,7 @@ interface AgentState {
   fetchAgents: () => Promise<void>;
   fetchTools: () => Promise<void>;
   fetchMcpServers: () => Promise<void>;
+  runAgent: (name: string, inputText: string) => Promise<any>;
   createAgent: (agent: Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Agent>;
   updateAgent: (id: string, agent: Partial<Omit<Agent, 'id' | 'createdAt'>>) => void;
   duplicateAgent: (id: string) => Agent | null;
@@ -51,20 +52,30 @@ export const useAgentStore = create<AgentState>()(
           if (!response.ok) throw new Error('Failed to fetch agents');
           const data = await response.json();
           
-          const mappedAgents: Agent[] = data.map((item: any) => ({
-            id: item.AGENT_NAME,
-            name: item.AGENT_NAME,
-            description: '',
-            category: 'Custom',
-            status: 'published',
-            model: (item.MODEL_STRING || 'gemini-2.5-pro') as AIModel,
-            systemPrompt: item.PROMPT || '',
-            toolIds: item.TOOL_NAMES || [],
-            mcpServers: item.MCP_SERVERS || [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            avatarColor: AVATAR_GRADIENTS[Math.floor(Math.random() * AVATAR_GRADIENTS.length)],
-          }));
+          const mappedAgents: Agent[] = data.map((item: any) => {
+            let rawModel = item.MODEL_STRING || 'gemini/gemini-2.5-pro';
+            // Auto-migrate legacy agents missing the provider prefix
+            if (!rawModel.includes('/')) {
+              if (rawModel.startsWith('gpt')) rawModel = `openai/${rawModel}`;
+              else if (rawModel.includes('llama') || rawModel.includes('mixtral')) rawModel = `groq/${rawModel}`;
+              else rawModel = `gemini/${rawModel}`;
+            }
+
+            return {
+              id: item.AGENT_NAME,
+              name: item.AGENT_NAME,
+              description: '',
+              category: 'Custom',
+              status: 'published',
+              model: rawModel,
+              systemPrompt: item.PROMPT || '',
+              toolIds: item.TOOL_NAMES || [],
+              mcpServers: item.MCP_SERVERS || [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              avatarColor: AVATAR_GRADIENTS[Math.floor(Math.random() * AVATAR_GRADIENTS.length)],
+            };
+          });
 
           set({ agents: mappedAgents, isLoading: false });
         } catch (error: any) {
@@ -162,8 +173,31 @@ export const useAgentStore = create<AgentState>()(
         }
       },
 
-      updateAgent: (id, agentData) => {
+      updateAgent: async (id, agentData) => {
         const now = new Date().toISOString();
+        
+        try {
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+          
+          if (agentData.name) {
+            // Optional: update the backend if it's a full update
+            const payload = {
+              prompt: agentData.systemPrompt || '',
+              model: agentData.model || '',
+              tools: agentData.toolIds || [],
+              mcp_servers: agentData.mcpServers || [],
+            };
+            
+            await fetch(`${baseUrl}/agents/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          }
+        } catch (error) {
+          console.error('Error updating agent on backend:', error);
+        }
+
         set((state) => ({
           agents: state.agents.map((ag) =>
             ag.id === id
@@ -175,6 +209,24 @@ export const useAgentStore = create<AgentState>()(
               : ag
           ),
         }));
+      },
+
+      runAgent: async (name: string, inputText: string) => {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+        const response = await fetch(`${baseUrl}/agents/${encodeURIComponent(name)}/run`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: name, input_text: inputText }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to run agent');
+        }
+        
+        return response.json();
       },
 
       duplicateAgent: (id) => {

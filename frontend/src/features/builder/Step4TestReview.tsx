@@ -19,7 +19,7 @@ interface Step4TestReviewProps {
 
 export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
   const { watch } = form;
-  const { tools } = useAgentStore();
+  const { tools, runAgent } = useAgentStore();
 
   const formData = watch();
   const selectedTools = tools.filter((t) => (formData.toolIds || []).includes(t.id));
@@ -30,7 +30,7 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
   const [executionSteps, setExecutionSteps] = useState<TestExecutionStep[]>([]);
   const [agentResponse, setAgentResponse] = useState<string | null>(null);
 
-  const runMockTest = (e: React.FormEvent) => {
+  const runMockTest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!testQuery.trim() || isRunningTest) return;
 
@@ -40,85 +40,69 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString();
+    const agentName = formData.name || 'Untitled_Agent';
 
-    // Step 1: Prompt Prepared
-    setTimeout(() => {
-      setExecutionSteps((prev) => [
-        ...prev,
+    try {
+      // 1. Prepare and Sync the Agent configuration to backend
+      setExecutionSteps([
         {
           id: 'step-1',
           type: 'prompt_prep',
-          title: 'Prompt Prepared',
-          details: `Injected user query = "${testQuery}". Model: ${formData.model}`,
+          title: 'Syncing Agent Configuration',
+          details: `Saving configuration for ${agentName} to the backend...`,
           timestamp: timeStr,
-          status: 'success',
-          executionTimeMs: 42,
-        },
+          status: 'running',
+        }
       ]);
-    }, 400);
 
-    // Step 2: Tool Invocation (if tools attached)
-    const activeTool = selectedTools[0];
-    const toolDelay = activeTool ? 1100 : 700;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+      const syncPayload = {
+        name: agentName,
+        prompt: formData.systemPrompt || '',
+        model: formData.model,
+        tools: formData.toolIds || [],
+        mcp_servers: formData.mcpServers || [],
+      };
+      
+      const createResp = await fetch(`${baseUrl}/agents/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(syncPayload),
+      });
 
-    if (activeTool) {
-      setTimeout(() => {
-        setExecutionSteps((prev) => [
-          ...prev,
-          {
-            id: 'step-2',
-            type: 'tool_invocation',
-            title: `Invoked Tool [${activeTool.name}]`,
-            details: `Executing ${activeTool.category} query with input params...`,
-            timestamp: timeStr,
-            status: 'running',
-          },
-        ]);
-      }, 900);
+      if (!createResp.ok) {
+        throw new Error('Failed to synchronize agent configuration with the server.');
+      }
 
-      setTimeout(() => {
-        setExecutionSteps((prev) =>
-          prev.map((s) =>
-            s.id === 'step-2'
-              ? {
-                  ...s,
-                  status: 'success',
-                  details: `Received valid response payload from ${activeTool.name} (200 OK)`,
-                  executionTimeMs: 310,
-                }
-              : s
-          )
-        );
-      }, 1600);
-    }
-
-    // Step 3: LLM Generation
-    setTimeout(() => {
       setExecutionSteps((prev) => [
-        ...prev,
+        { ...prev[0], status: 'success', details: `Agent ${agentName} synced successfully.` },
         {
-          id: 'step-3',
+          id: 'step-2',
           type: 'llm_thinking',
-          title: `${formData.model} Model Reasoning`,
-          details: `Processing prompt context & tool outputs via ${formData.model}...`,
-          timestamp: timeStr,
-          status: 'success',
-          executionTimeMs: 480,
-        },
+          title: 'Executing Agent',
+          details: `Sending query to ${formData.model} and invoking tools...`,
+          timestamp: new Date().toLocaleTimeString(),
+          status: 'running',
+        }
       ]);
 
-      // Final response text
-      const mockReply = `Hello! Based on your query ("${testQuery}"), here is the agent response processed by **${
-        formData.model
-      }**:\n\n` +
-        (activeTool
-          ? `• **Tool Utilized**: ${activeTool.name}\n• **Status**: Execution succeeded in 310ms\n\n`
-          : '') +
-        `**Agent Resolution:**\nI have successfully received your input query and validated the system instructions. All parameters and tool bindings are ready for production deployment.`;
+      // 2. Run the actual agent via our store API
+      const response = await runAgent(agentName, testQuery);
 
-      setAgentResponse(mockReply);
+      setExecutionSteps((prev) => [
+        prev[0],
+        { ...prev[1], status: 'success', details: 'Agent execution completed successfully.' }
+      ]);
+      setAgentResponse(response.result || 'No output returned by the agent.');
+
+    } catch (err: any) {
+      setExecutionSteps((prev) => [
+        ...prev.map(step => step.status === 'running' ? { ...step, status: 'error', details: err.message } : step)
+      ]);
+      setAgentResponse(`Error: ${err.message}`);
+    } finally {
       setIsRunningTest(false);
-    }, toolDelay + 1200);
+    }
   };
 
   return (

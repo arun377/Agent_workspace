@@ -53,7 +53,7 @@ export const AgentBuilderPage: React.FC = () => {
       name: existingAgent?.name || '',
       description: existingAgent?.description || '',
       category: existingAgent?.category || 'Customer Support',
-      model: existingAgent?.model || 'gemini/gemini-2.5-flash',
+      model: existingAgent?.model || 'gemini/gemma-4-31b-it',
       systemPrompt:
         existingAgent?.systemPrompt ||
         `You are a specialized AI assistant.\nYour goal is to assist users with query.\nAlways maintain a professional tone.`,
