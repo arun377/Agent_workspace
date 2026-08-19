@@ -79,16 +79,16 @@ export const Step2Prompt: React.FC<Step2PromptProps> = ({ form }) => {
   return (
     <div className="space-y-6">
       {/* Variable Chips Helper Bar */}
-      <div className="glass-card rounded-2xl p-4 border border-slate-200 dark:border-white/5 space-y-2">
+      <div className="glass-card rounded-2xl p-4 border border-zinc-200/80 dark:border-zinc-800/80 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-cyan-700 dark:text-cyan-400" />
-            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+            <Sparkles className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+            <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
               Template Variables
             </h4>
           </div>
-          <span className="text-[10px] text-slate-600 dark:text-slate-400 font-mono font-medium">
-            Click chip to insert into prompt
+          <span className="text-[10px] text-zinc-500 font-mono">
+            Click variable to append into prompt
           </span>
         </div>
 
@@ -98,9 +98,9 @@ export const Step2Prompt: React.FC<Step2PromptProps> = ({ form }) => {
               key={item.tag}
               type="button"
               onClick={() => insertVariable(item.tag)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-800 dark:text-cyan-400 border border-cyan-500/30 text-xs font-mono font-bold transition-all hover:scale-105"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 text-xs font-mono font-bold transition-all shadow-2xs"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3 h-3" />
               <span>{item.tag}</span>
             </button>
           ))}
@@ -110,10 +110,10 @@ export const Step2Prompt: React.FC<Step2PromptProps> = ({ form }) => {
       {/* Main Textarea */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+          <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
             System Instructions (Prompt) *
           </label>
-          <span className="text-[10px] text-slate-600 dark:text-slate-400 font-mono font-semibold">
+          <span className="text-[10px] text-zinc-500 font-mono font-semibold">
             {currentPrompt ? currentPrompt.length : 0} characters
           </span>
         </div>
@@ -122,7 +122,7 @@ export const Step2Prompt: React.FC<Step2PromptProps> = ({ form }) => {
           {...register('systemPrompt')}
           rows={12}
           placeholder="Enter detailed persona, behavioral constraints, and instructions for your agent..."
-          className="w-full p-4 rounded-2xl text-xs font-mono glass-input text-slate-900 dark:text-slate-100 leading-relaxed shadow-xs"
+          className="w-full p-4 rounded-2xl text-xs font-mono glass-input text-zinc-900 dark:text-zinc-100 leading-relaxed border border-zinc-200 dark:border-zinc-800"
         />
         {errors.systemPrompt && (
           <p className="text-[11px] text-rose-500 mt-1 font-medium">{errors.systemPrompt.message}</p>
@@ -132,9 +132,9 @@ export const Step2Prompt: React.FC<Step2PromptProps> = ({ form }) => {
       {/* Preset Prompt Templates */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-          <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
-            Quick Start Prompt Presets
+          <BookOpen className="w-4 h-4 text-zinc-700 dark:text-zinc-300" />
+          <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+            Prompt Presets
           </h4>
         </div>
 
@@ -143,21 +143,22 @@ export const Step2Prompt: React.FC<Step2PromptProps> = ({ form }) => {
             <div
               key={preset.title}
               onClick={() => applyPreset(preset.prompt, preset.title)}
-              className="glass-card rounded-2xl p-4 border border-slate-200 dark:border-white/5 hover:border-cyan-600/50 cursor-pointer transition-all hover:-translate-y-0.5 group"
+              className="glass-card rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800/70 hover:border-zinc-400 dark:hover:border-zinc-600 cursor-pointer transition-all hover:-translate-y-0.5 group shadow-xs"
             >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="font-bold text-xs text-slate-900 dark:text-slate-100 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-700 dark:group-hover:text-white transition-colors">
                   {preset.title}
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-transparent">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
                   {preset.category}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-700 dark:text-slate-300 line-clamp-3 font-mono leading-relaxed">
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-3 font-mono leading-relaxed">
                 {preset.prompt}
               </p>
-              <div className="mt-2 text-[10px] text-cyan-700 dark:text-cyan-400 font-bold group-hover:underline">
-                Use Preset &rarr;
+              <div className="mt-3 pt-2 border-t border-zinc-100 dark:border-zinc-800/60 text-[10px] text-zinc-700 dark:text-zinc-300 font-bold group-hover:underline flex items-center justify-between">
+                <span>Use Preset</span>
+                <span>&rarr;</span>
               </div>
             </div>
           ))}

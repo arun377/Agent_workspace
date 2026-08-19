@@ -9,15 +9,14 @@ import {
   FileCode,
   Wrench,
   Sparkles,
-  LayoutGrid,
-  List as ListIcon,
   RotateCcw,
   AlertTriangle,
+  Play,
+  Settings,
 } from 'lucide-react';
 import { useAgentStore } from '../../store/useAgentStore';
 import { Agent, AgentStatus, Tool } from '../../types/agent';
 import { AgentCard } from './AgentCard';
-import { CATEGORIES } from '../../data/mockData';
 import { GlassModal } from '../../components/ui/GlassModal';
 import { useToast } from '../../components/ui/Toast';
 
@@ -31,7 +30,6 @@ export const DashboardPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | AgentStatus>('all');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [selectedModel, setSelectedModel] = useState('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Inspector Selected Agent State
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(agents[0]?.id || null);
@@ -95,7 +93,7 @@ export const DashboardPage: React.FC = () => {
         {/* LEFT PANE: Navigation & Metric Summaries */}
         <aside className="lg:col-span-3 space-y-4">
           <div className="flex items-center justify-between px-1">
-            <span className="mono text-slate-800 dark:text-slate-300 font-extrabold">NAVIGATION</span>
+            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Overview</span>
             <button
               type="button"
               onClick={() => {
@@ -103,37 +101,37 @@ export const DashboardPage: React.FC = () => {
                 showToast('Reset Complete', 'Restored sample agents & tools catalog.', 'info');
               }}
               title="Reset Sample Data"
-              className="p-1.5 rounded glass-card text-slate-700 dark:text-slate-300 hover:text-cyan-700 dark:hover:text-[#00F0FF] border border-slate-300 dark:border-white/10 transition-colors text-xs"
+              className="p-1.5 rounded-lg glass-card text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 border border-zinc-200 dark:border-zinc-800 transition-colors text-xs"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-            <div className="glass-card rounded p-4 border border-slate-300 dark:border-white/10">
-              <span className="mono block text-slate-800 dark:text-slate-300 mb-1 font-extrabold">TOTAL_AGENTS</span>
-              <h4 className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
+            <div className="glass-card rounded-2xl p-4 border border-zinc-200/80 dark:border-zinc-800/80">
+              <span className="text-[11px] font-semibold text-zinc-500 block mb-1">Total Agents</span>
+              <h4 className="text-2xl font-bold text-zinc-900 dark:text-white">
                 {String(totalAgents).padStart(2, '0')}
               </h4>
             </div>
 
-            <div className="glass-card rounded p-4 border border-slate-300 dark:border-white/10">
-              <span className="mono block text-emerald-950 dark:text-[#00FF85] mb-1 font-extrabold">LIVE_STATUS</span>
-              <h4 className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
+            <div className="glass-card rounded-2xl p-4 border border-zinc-200/80 dark:border-zinc-800/80">
+              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 block mb-1">Live / Published</span>
+              <h4 className="text-2xl font-bold text-zinc-900 dark:text-white">
                 {String(publishedCount).padStart(2, '0')}
               </h4>
             </div>
 
-            <div className="glass-card rounded p-4 border border-slate-300 dark:border-white/10">
-              <span className="mono block text-amber-950 dark:text-amber-400 mb-1 font-extrabold">DRAFT_MODELS</span>
-              <h4 className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
+            <div className="glass-card rounded-2xl p-4 border border-zinc-200/80 dark:border-zinc-800/80">
+              <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 block mb-1">Draft Models</span>
+              <h4 className="text-2xl font-bold text-zinc-900 dark:text-white">
                 {String(draftCount).padStart(2, '0')}
               </h4>
             </div>
 
-            <div className="glass-card rounded p-4 border border-slate-300 dark:border-white/10">
-              <span className="mono block text-purple-950 dark:text-purple-400 mb-1 font-extrabold">CORE_TOOLS</span>
-              <h4 className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
+            <div className="glass-card rounded-2xl p-4 border border-zinc-200/80 dark:border-zinc-800/80">
+              <span className="text-[11px] font-semibold text-zinc-500 block mb-1">Active Tools</span>
+              <h4 className="text-2xl font-bold text-zinc-900 dark:text-white">
                 {String(totalTools).padStart(2, '0')}
               </h4>
             </div>
@@ -143,101 +141,78 @@ export const DashboardPage: React.FC = () => {
         {/* CENTER PANE: Main Content & Agent Registry */}
         <main className="lg:col-span-6 space-y-6">
           {/* Hub Banner */}
-          <div className="glass-card rounded p-6 border border-slate-300 dark:border-white/10">
-            <span className="mono text-cyan-900 dark:text-[#00F0FF] block mb-2 font-extrabold">
-              [00_ORCHESTRATION_HUB]
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
+          <div className="glass-card rounded-2xl p-6 border border-zinc-200/80 dark:border-zinc-800/80">
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[10px] font-bold mb-3">
+              <Sparkles className="w-3 h-3 text-zinc-700 dark:text-zinc-300" />
+              <span>Studio Workspace</span>
+            </div>
+            <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight mb-2">
               Agent Orchestration Hub
             </h1>
-            <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-300 font-medium leading-relaxed">
+            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
               Build, test, and deploy intelligent custom agents equipped with live search tools, python sandboxes, and API connectors.
             </p>
           </div>
 
           {/* Search Input Bar */}
           <div className="relative">
-            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-600 dark:text-slate-400" />
+            <Search className="absolute left-3.5 top-3 w-4 h-4 text-zinc-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Query agent manifest database..."
-              className="w-full pl-10 pr-4 py-2.5 rounded text-xs glass-input text-slate-900 dark:text-white font-mono font-bold placeholder:font-sans placeholder:text-slate-600 dark:placeholder:text-slate-400"
+              placeholder="Search agents by name, description, or model..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs glass-input text-zinc-900 dark:text-white placeholder:text-zinc-400 border border-zinc-200 dark:border-zinc-800"
             />
           </div>
 
           {/* Active Registry Header & Filters */}
-          <div className="flex items-center justify-between gap-2 border-b border-slate-300 dark:border-white/10 pb-3">
-            <span className="mono text-slate-900 dark:text-slate-200 font-extrabold">ACTIVE_REGISTRY</span>
+          <div className="flex items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Agents Registry</span>
 
             <div className="flex items-center gap-2">
               {/* Status Filter Pills */}
-              <div className="flex items-center bg-slate-200 dark:bg-black/40 p-1 rounded border border-slate-300 dark:border-white/10 text-[10px] mono">
+              <div className="flex items-center bg-zinc-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[11px]">
                 <button
                   type="button"
                   onClick={() => setStatusFilter('all')}
-                  className={`px-2 py-0.5 rounded transition-colors ${
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
                     statusFilter === 'all'
-                      ? 'bg-slate-900 text-white dark:bg-white/10 dark:text-[#00F0FF] font-extrabold'
-                      : 'text-slate-800 dark:text-slate-400 font-bold'
+                      ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs'
+                      : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
                   }`}
                 >
-                  ALL
+                  All
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('published')}
-                  className={`px-2 py-0.5 rounded transition-colors ${
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
                     statusFilter === 'published'
-                      ? 'bg-emerald-800 text-white dark:bg-white/10 dark:text-[#00FF85] font-extrabold'
-                      : 'text-slate-800 dark:text-slate-400 font-bold'
+                      ? 'bg-white dark:bg-zinc-800 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                      : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
                   }`}
                 >
-                  PUBLISHED
+                  Published
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('draft')}
-                  className={`px-2 py-0.5 rounded transition-colors ${
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
                     statusFilter === 'draft'
-                      ? 'bg-amber-800 text-white dark:bg-white/10 dark:text-amber-400 font-extrabold'
-                      : 'text-slate-800 dark:text-slate-400 font-bold'
+                      ? 'bg-white dark:bg-zinc-800 text-amber-600 dark:text-amber-400 shadow-xs'
+                      : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
                   }`}
                 >
-                  DRAFT
-                </button>
-              </div>
-
-              {/* View Toggle */}
-              <div className="flex items-center bg-slate-200 dark:bg-black/40 p-1 rounded border border-slate-300 dark:border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('grid')}
-                  className={`p-1 rounded ${viewMode === 'grid' ? 'bg-slate-900 text-white dark:bg-white/10 dark:text-[#00F0FF]' : 'text-slate-600'}`}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('list')}
-                  className={`p-1 rounded ${viewMode === 'list' ? 'bg-slate-900 text-white dark:bg-white/10 dark:text-[#00F0FF]' : 'text-slate-600'}`}
-                >
-                  <ListIcon className="w-3.5 h-3.5" />
+                  Draft
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Agent Cards / List */}
+          {/* Agent Cards List */}
           {filteredAgents.length > 0 ? (
-            <div
-              className={
-                viewMode === 'grid'
-                  ? 'grid grid-cols-1 md:grid-cols-2 gap-4'
-                  : 'flex flex-col gap-3'
-              }
-            >
+            <div className="flex flex-col gap-3">
               <AnimatePresence>
                 {filteredAgents.map((agent) => {
                   const isInspected = inspectedAgent?.id === agent.id;
@@ -259,14 +234,14 @@ export const DashboardPage: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="glass-card rounded p-8 text-center border border-slate-300 dark:border-white/10 my-4"
+              className="glass-card rounded-2xl p-8 text-center border border-zinc-200 dark:border-zinc-800 my-4"
             >
-              <div className="w-12 h-12 rounded bg-cyan-500/10 text-cyan-700 dark:text-[#00F0FF] flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 flex items-center justify-center mx-auto mb-3">
                 <Bot className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">NO_MATCHING_ENTITIES</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                No agents match the current database query or status filters.
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-white">No agents found</h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto">
+                No agents match the current search query or status filter.
               </p>
               <button
                 type="button"
@@ -276,9 +251,9 @@ export const DashboardPage: React.FC = () => {
                   setSelectedCategory('All Categories');
                   setSelectedModel('all');
                 }}
-                className="mt-4 px-3 py-1.5 rounded text-xs mono font-bold bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200"
+                className="mt-4 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 transition-colors"
               >
-                CLEAR_FILTERS
+                Clear Filters
               </button>
             </motion.div>
           )}
@@ -287,29 +262,29 @@ export const DashboardPage: React.FC = () => {
         {/* RIGHT PANE: Technical Inspector */}
         <aside className="lg:col-span-3 space-y-4">
           <div className="flex items-center justify-between px-1">
-            <span className="mono text-slate-800 dark:text-slate-300 font-extrabold">INSPECTOR</span>
+            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Inspector</span>
           </div>
 
-          <div className="glass-card rounded p-5 border border-slate-300 dark:border-white/10 space-y-4">
-            <span className="mono text-slate-800 dark:text-slate-300 block border-b border-slate-300 dark:border-white/10 pb-2 font-extrabold">
-              SELECTED_ENTITY
+          <div className="glass-card rounded-2xl p-5 border border-zinc-200/80 dark:border-zinc-800/80 space-y-4">
+            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block border-b border-zinc-100 dark:border-zinc-800 pb-2">
+              Selected Agent
             </span>
 
             {inspectedAgent ? (
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white">
                     {inspectedAgent.name}
                   </h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="mono text-[10px] px-2 py-0.5 rounded bg-cyan-100 dark:bg-cyan-500/10 text-cyan-950 dark:text-[#00F0FF] border border-cyan-300 dark:border-cyan-500/20 font-bold">
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="mono text-[10px] px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 font-bold">
                       {inspectedAgent.model}
                     </span>
                     <span
-                      className={`mono text-[10px] px-2 py-0.5 rounded font-bold ${
+                      className={`mono text-[10px] px-2 py-0.5 rounded-md font-bold ${
                         inspectedAgent.status === 'published'
-                          ? 'bg-emerald-100 text-emerald-950 border border-emerald-300 dark:bg-emerald-500/15 dark:text-[#00FF85] dark:border-emerald-500/30'
-                          : 'bg-amber-100 text-amber-950 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200/60 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20'
                       }`}
                     >
                       {inspectedAgent.status.toUpperCase()}
@@ -317,28 +292,28 @@ export const DashboardPage: React.FC = () => {
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-800 dark:text-slate-300 leading-relaxed font-normal">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed font-normal">
                   {inspectedAgent.description || 'No description provided.'}
                 </p>
 
-                <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-white/10 text-xs">
+                <div className="space-y-2 pt-3 border-t border-zinc-100 dark:border-zinc-800 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="mono text-slate-800 dark:text-slate-400 font-bold">CATEGORY</span>
-                    <span className="font-extrabold text-slate-900 dark:text-slate-200">{inspectedAgent.category}</span>
+                    <span className="text-zinc-500 font-medium">Category</span>
+                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">{inspectedAgent.category}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="mono text-slate-800 dark:text-slate-400 font-bold">TEMPERATURE</span>
-                    <span className="font-mono font-extrabold text-slate-900 dark:text-slate-200">{inspectedAgent.temperature}</span>
+                    <span className="text-zinc-500 font-medium">Temperature</span>
+                    <span className="mono font-semibold text-zinc-800 dark:text-zinc-200">{inspectedAgent.temperature}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="mono text-slate-800 dark:text-slate-400 font-bold">PROMPT_LENGTH</span>
-                    <span className="font-mono font-extrabold text-slate-900 dark:text-slate-200">{inspectedAgent.systemPrompt.length} chars</span>
+                    <span className="text-zinc-500 font-medium">System Prompt</span>
+                    <span className="mono font-semibold text-zinc-800 dark:text-zinc-200">{inspectedAgent.systemPrompt.length} chars</span>
                   </div>
                 </div>
 
                 {/* Active Tools Section */}
-                <div className="pt-3 border-t border-slate-200 dark:border-white/10">
-                  <span className="mono text-slate-800 dark:text-slate-400 block mb-2 font-bold">ACTIVE_TOOLS</span>
+                <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                  <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Attached Tools</span>
                   <div className="flex flex-wrap gap-1.5">
                     {inspectedAgent.toolIds.map((tid) => {
                       const tool = toolsMap[tid];
@@ -347,39 +322,41 @@ export const DashboardPage: React.FC = () => {
                         <div
                           key={tid}
                           title={tool.name}
-                          className="px-2 py-1 rounded bg-slate-100 dark:bg-black/40 border border-slate-300 dark:border-white/10 text-[10px] font-mono font-bold text-slate-900 dark:text-slate-200 flex items-center gap-1"
+                          className="px-2.5 py-1 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[10px] font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 shadow-xs"
                         >
-                          <Wrench className="w-3 h-3 text-cyan-700 dark:text-[#00F0FF]" />
+                          <Wrench className="w-3 h-3 text-zinc-500" />
                           <span>{tool.name}</span>
                         </div>
                       );
                     })}
                     {inspectedAgent.toolIds.length === 0 && (
-                      <span className="text-xs text-slate-500 italic">No tools attached</span>
+                      <span className="text-xs text-zinc-400 italic">No tools attached</span>
                     )}
                   </div>
                 </div>
 
                 {/* Quick Actions */}
-                <div className="pt-3 border-t border-slate-200 dark:border-white/10 space-y-2">
+                <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
                   <button
                     type="button"
                     onClick={() => navigate(`/agents/edit/${inspectedAgent.id}`)}
-                    className="w-full py-2 px-3 rounded text-xs font-bold mono bg-cyan-700 hover:bg-cyan-800 dark:bg-[#00F0FF] dark:hover:bg-cyan-400 text-white dark:text-black transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-100 dark:text-zinc-900 transition-colors flex items-center justify-center gap-2 shadow-xs"
                   >
-                    <span>EDIT_AGENT_CONFIG</span>
+                    <Settings className="w-3.5 h-3.5" />
+                    <span>Edit Configuration</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => navigate(`/agents/edit/${inspectedAgent.id}?step=4`)}
-                    className="w-full py-2 px-3 rounded text-xs font-bold mono bg-slate-900 hover:bg-black dark:bg-white/10 dark:hover:bg-white/15 text-white dark:text-slate-200 transition-colors flex items-center justify-center gap-2 border border-slate-900 dark:border-white/10"
+                    className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition-colors flex items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-700"
                   >
-                    <span>LAUNCH_TEST_SANDBOX</span>
+                    <Play className="w-3.5 h-3.5" />
+                    <span>Launch Sandbox Test</span>
                   </button>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
                 Select an agent from the registry to view technical specifications, tool attachments, and deployment logs.
               </p>
             )}
@@ -397,27 +374,27 @@ export const DashboardPage: React.FC = () => {
         maxWidth="max-w-md"
       >
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-3 rounded bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs">
-            <AlertTriangle className="w-5 h-5 shrink-0" />
+          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-400 text-xs">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400" />
             <p className="font-medium">
-              Are you sure you want to delete <strong className="text-slate-900 dark:text-white">{deletingAgent?.name}</strong>? All prompt configurations and tool bindings will be removed.
+              Are you sure you want to delete <strong className="text-zinc-900 dark:text-white font-bold">{deletingAgent?.name}</strong>? All prompt configurations and tool bindings will be removed.
             </p>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-white/10">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
             <button
               type="button"
               onClick={() => setDeletingAgent(null)}
-              className="px-4 py-2 rounded text-xs font-bold mono text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             >
-              CANCEL
+              Cancel
             </button>
             <button
               type="button"
               onClick={handleDeleteConfirm}
-              className="px-4 py-2 rounded text-xs font-bold mono bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-500/20"
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition-colors"
             >
-              DELETE_AGENT
+              Delete Agent
             </button>
           </div>
         </div>

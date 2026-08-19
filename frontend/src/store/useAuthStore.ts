@@ -19,14 +19,8 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user: {
-        username: 'admin',
-        name: 'Senior Architect',
-        email: 'admin@agentstudio.ai',
-        role: 'Admin Developer',
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250',
-      },
-      isAuthenticated: true, // Default logged in for immediate seamless review, but fully toggleable via Login/Logout
+      user: null,
+      isAuthenticated: false, // User must log in first
 
       login: (username, password) => {
         if (username.trim().toLowerCase() === 'admin' && password === 'admin') {

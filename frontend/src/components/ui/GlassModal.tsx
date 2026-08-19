@@ -29,25 +29,25 @@ export const GlassModal: React.FC<GlassModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-[100]"
+            className="fixed inset-0 bg-zinc-950/40 dark:bg-zinc-950/80 backdrop-blur-sm z-[100]"
           />
 
-          {/* Modal Container with 100% Opaque Solid Popup styling */}
+          {/* Modal Container */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`relative w-full ${maxWidth} popup-solid rounded-3xl p-6 shadow-2xl my-8 overflow-hidden z-[110]`}
+            className={`relative w-full ${maxWidth} popup-solid rounded-3xl p-6 shadow-2xl dark:shadow-black/50 my-8 overflow-hidden z-[110]`}
           >
             {/* Header */}
-            <div className="flex items-start justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-start justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
               <div>
-                <h3 className="text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 dark:from-cyan-300 dark:via-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+                <h3 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                   {title}
                 </h3>
                 {subtitle && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-medium">
                     {subtitle}
                   </p>
                 )}
@@ -55,7 +55,7 @@ export const GlassModal: React.FC<GlassModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>

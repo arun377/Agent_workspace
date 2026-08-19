@@ -13,21 +13,38 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      theme: 'dark', // Pure dark theme enforced
+      theme: 'light', // Default to light mode
 
       toggleTheme: () => {
-        document.documentElement.classList.add('dark');
-        set({ theme: 'dark' });
+        set((state) => {
+          const newTheme = state.theme === 'light' ? 'dark' : 'light';
+          if (newTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+          return { theme: newTheme };
+        });
       },
 
-      setTheme: () => {
-        document.documentElement.classList.add('dark');
-        set({ theme: 'dark' });
+      setTheme: (theme: Theme) => {
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+        set({ theme });
       },
 
       initTheme: () => {
-        document.documentElement.classList.add('dark');
-        set({ theme: 'dark' });
+        set((state) => {
+          if (state.theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+          return state;
+        });
       },
     }),
     {

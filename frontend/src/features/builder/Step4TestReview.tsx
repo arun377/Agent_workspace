@@ -124,34 +124,34 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
   return (
     <div className="space-y-6">
       {/* Configuration Summary Card */}
-      <div className="glass-card rounded-2xl p-5 border border-slate-200 dark:border-white/5 space-y-4">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-cyan-700 dark:text-cyan-400" /> Configuration Review
+      <div className="glass-card rounded-2xl p-5 border border-zinc-200/80 dark:border-zinc-800/80 space-y-4">
+        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-zinc-700 dark:text-zinc-300" /> Configuration Review
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5">
-            <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold block uppercase">Agent Name</span>
-            <span className="font-extrabold text-slate-900 dark:text-slate-100 line-clamp-1">
+          <div className="p-3.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800">
+            <span className="text-[10px] text-zinc-500 font-semibold block uppercase tracking-wider mb-1">Agent Name</span>
+            <span className="font-bold text-zinc-900 dark:text-zinc-100 line-clamp-1">
               {formData.name || 'Untitled Agent'}
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5">
-            <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold block uppercase">Engine Model</span>
-            <span className="font-extrabold text-cyan-800 dark:text-cyan-400 font-mono">
+          <div className="p-3.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800">
+            <span className="text-[10px] text-zinc-500 font-semibold block uppercase tracking-wider mb-1">Engine Model</span>
+            <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono">
               {formData.model}
             </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5">
-            <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold block uppercase">Temperature</span>
-            <span className="font-extrabold text-amber-800 dark:text-amber-500 font-mono">{formData.temperature}</span>
+          <div className="p-3.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800">
+            <span className="text-[10px] text-zinc-500 font-semibold block uppercase tracking-wider mb-1">Temperature</span>
+            <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono">{formData.temperature}</span>
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5">
-            <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold block uppercase">Attached Tools</span>
-            <span className="font-extrabold text-emerald-800 dark:text-emerald-400">
+          <div className="p-3.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800">
+            <span className="text-[10px] text-zinc-500 font-semibold block uppercase tracking-wider mb-1">Attached Tools</span>
+            <span className="font-bold text-emerald-600 dark:text-emerald-400">
               {selectedTools.length} Tools
             </span>
           </div>
@@ -160,11 +160,11 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
         {/* Attached Tools Pills */}
         {selectedTools.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <span className="text-[11px] text-slate-700 dark:text-slate-400 font-bold mr-1">Bound Tools:</span>
+            <span className="text-[11px] text-zinc-500 font-semibold mr-1">Bound Tools:</span>
             {selectedTools.map((t) => (
               <span
                 key={t.id}
-                className="px-2.5 py-0.5 rounded-lg bg-cyan-500/10 text-cyan-800 dark:text-cyan-400 border border-cyan-500/30 text-[11px] font-bold"
+                className="px-2.5 py-0.5 rounded-md bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 text-[11px] font-semibold"
               >
                 {t.name}
               </span>
@@ -174,18 +174,18 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
       </div>
 
       {/* Test Playground Workspace */}
-      <div className="glass-card rounded-2xl p-5 border border-slate-200 dark:border-white/5 space-y-4">
+      <div className="glass-card rounded-2xl p-5 border border-zinc-200/80 dark:border-zinc-800/80 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <Bot className="w-4 h-4 text-cyan-700 dark:text-cyan-400" /> Interactive Test Playground
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+              <Bot className="w-4 h-4 text-zinc-700 dark:text-zinc-300" /> Interactive Test Sandbox
             </h3>
-            <p className="text-[11px] text-slate-700 dark:text-slate-400 mt-0.5 font-normal">
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 font-normal">
               Simulate a user query to observe real-time step-by-step execution traces and model response.
             </p>
           </div>
-          <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-400 border border-amber-500/30">
-            Temporary Sandbox (Not Saved)
+          <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
+            Sandbox Simulator
           </span>
         </div>
 
@@ -196,12 +196,12 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
             value={testQuery}
             onChange={(e) => setTestQuery(e.target.value)}
             placeholder="Type a test query (e.g. 'How do I reset my password and check recent orders?')"
-            className="flex-1 px-4 py-2.5 rounded-xl text-xs glass-input text-slate-900 dark:text-slate-100"
+            className="flex-1 px-4 py-2.5 rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800"
           />
           <button
             type="submit"
             disabled={isRunningTest || !testQuery.trim()}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white shadow-md shadow-cyan-500/20 transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 text-white dark:bg-white dark:hover:bg-zinc-100 dark:text-zinc-900 shadow-xs transition-all"
           >
             {isRunningTest ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -214,10 +214,10 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
 
         {/* Execution Trace Timeline */}
         {executionSteps.length > 0 && (
-          <div className="mt-4 p-4 rounded-xl popup-solid text-slate-900 dark:text-slate-100 space-y-3 font-mono text-xs">
-            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2">
-              <span className="flex items-center gap-1.5 font-bold text-cyan-600 dark:text-cyan-400">
-                <Terminal className="w-3.5 h-3.5" /> Execution Trace Logs
+          <div className="mt-4 p-4 rounded-xl popup-solid text-zinc-900 dark:text-zinc-100 space-y-3 font-mono text-xs border border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between text-[11px] text-zinc-500 border-b border-zinc-100 dark:border-zinc-800 pb-2">
+              <span className="flex items-center gap-1.5 font-bold text-zinc-800 dark:text-zinc-200">
+                <Terminal className="w-3.5 h-3.5 text-zinc-500" /> Execution Trace Logs
               </span>
               <span>Trace ID: {Math.random().toString(36).substring(2, 9)}</span>
             </div>
@@ -234,12 +234,12 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-bold text-slate-800 dark:text-slate-200">{step.title}</p>
+                      <p className="font-bold text-zinc-800 dark:text-zinc-200">{step.title}</p>
                       {step.executionTimeMs && (
-                        <span className="text-[10px] text-slate-500">{step.executionTimeMs}ms</span>
+                        <span className="text-[10px] text-zinc-400">{step.executionTimeMs}ms</span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">{step.details}</p>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">{step.details}</p>
                   </div>
                 </div>
               ))}
@@ -252,12 +252,12 @@ export const Step4TestReview: React.FC<Step4TestReviewProps> = ({ form }) => {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-4 p-4 rounded-xl popup-solid border border-cyan-500/30 text-slate-900 dark:text-slate-100 space-y-2"
+            className="mt-4 p-4 rounded-xl popup-solid border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 space-y-2"
           >
-            <div className="flex items-center gap-2 text-xs font-bold text-cyan-600 dark:text-cyan-400">
+            <div className="flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-white">
               <Bot className="w-4 h-4" /> Agent Output:
             </div>
-            <div className="text-xs leading-relaxed whitespace-pre-wrap font-sans">
+            <div className="text-xs leading-relaxed whitespace-pre-wrap font-sans text-zinc-700 dark:text-zinc-300">
               {agentResponse}
             </div>
           </motion.div>

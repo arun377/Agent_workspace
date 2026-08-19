@@ -8,12 +8,16 @@ import {
   Plus,
   ChevronDown,
   LayoutGrid,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useThemeStore } from '../../store/useThemeStore';
 import { useToast } from '../ui/Toast';
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuthStore();
+  const { theme, toggleTheme } = useThemeStore();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,71 +33,82 @@ export const Header: React.FC = () => {
   const isBuilderRoute = location.pathname.includes('/agents/new') || location.pathname.includes('/agents/edit');
 
   return (
-    <header className="h-16 shrink-0 z-40 relative px-4 sm:px-6 flex items-center justify-between glass-panel border-b border-slate-300 dark:border-white/10">
+    <header className="h-16 shrink-0 z-40 relative px-4 sm:px-6 flex items-center justify-between glass-panel border-b border-zinc-200 dark:border-white/10">
       {/* Brand Logo & Title */}
       <div className="flex items-center gap-6">
         <Link to="/agents" className="flex items-center gap-3 group">
-          <div className="w-8 h-8 bg-cyan-600 dark:bg-[#00F0FF] hex-logo flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
-            <Bot className="w-4.5 h-4.5 text-white dark:text-black" />
+          <div className="w-8 h-8 bg-zinc-900 dark:bg-zinc-100 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-sm">
+            <Bot className="w-4.5 h-4.5 text-white dark:text-zinc-900" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-extrabold tracking-tight text-lg text-slate-900 dark:text-white uppercase">
+              <span className="font-extrabold tracking-tight text-lg text-zinc-900 dark:text-white uppercase">
                 AGENT STUDIO
               </span>
-              <span className="mono bg-cyan-100 dark:bg-cyan-500/10 text-cyan-950 dark:text-[#00F0FF] px-1.5 py-0.5 rounded border border-cyan-300 dark:border-cyan-500/30 font-extrabold">
-                PRO V2.4
+              <span className="mono bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 font-extrabold text-[10px]">
+                PRO
               </span>
             </div>
           </div>
         </Link>
 
         {/* System Active Status Pill */}
-        <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 text-emerald-950 dark:text-[#00FF85] mono font-extrabold">
-          <span className="w-2 h-2 rounded-full bg-emerald-600 dark:bg-[#00FF85] animate-pulse" />
-          <span>● SYSTEM ACTIVE</span>
+        <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 mono font-bold text-[10px]">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span>SYSTEM ACTIVE</span>
         </div>
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Navigation Action if on Dashboard */}
         {!isBuilderRoute && (
           <Link
             to="/agents/new"
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded text-xs font-bold bg-cyan-600 dark:bg-[#00F0FF] text-white dark:text-black hover:opacity-90 transition-all border border-cyan-600 dark:border-[#00F0FF] shadow-sm uppercase tracking-wider"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:scale-105 transition-transform shadow-sm"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span className="hidden sm:inline">CREATE_AGENT</span>
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span className="hidden sm:inline">New Agent</span>
           </Link>
         )}
 
         {isBuilderRoute && (
           <Link
             to="/agents"
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors border border-slate-300 dark:border-white/10 uppercase tracking-wider"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors border border-zinc-200 dark:border-zinc-800"
           >
-            <LayoutGrid className="w-4 h-4 text-cyan-700 dark:text-[#00F0FF]" />
-            <span className="hidden sm:inline">REGISTRY</span>
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Registry</span>
           </Link>
         )}
+
+        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-1 hidden sm:block" />
+
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          className="p-1.5 sm:p-2 rounded-lg text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+        >
+          {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+        </button>
 
         {/* User Profile Dropdown */}
         <div className="relative z-[60]">
           <button
             type="button"
             onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="flex items-center gap-2.5 p-1 pl-2 rounded border border-slate-300 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors"
+            className="flex items-center gap-2 p-1 pr-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors bg-white/50 dark:bg-zinc-900/50"
           >
             <img
               src={user?.avatarUrl}
               alt={user?.name || 'User'}
-              className="w-7 h-7 rounded object-cover border border-cyan-500/40"
+              className="w-6 h-6 sm:w-7 sm:h-7 rounded-md object-cover border border-zinc-200 dark:border-zinc-700"
             />
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 hidden md:block mono">
+            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 hidden md:block">
               {user?.username}
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            <ChevronDown className="w-3 h-3 text-zinc-400" />
           </button>
 
           <AnimatePresence>
@@ -105,12 +120,12 @@ export const Header: React.FC = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-2 w-56 z-[80] rounded popup-solid p-2 shadow-2xl text-xs"
+                  className="absolute right-0 mt-2 w-56 z-[80] rounded-xl popup-solid p-1.5 shadow-xl text-xs"
                 >
-                  <div className="p-2.5 border-b border-slate-200 dark:border-white/10 mb-1">
-                    <p className="font-bold text-slate-900 dark:text-white">{user?.name}</p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
-                    <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-700 dark:text-[#00F0FF] font-medium text-[10px] mono">
+                  <div className="p-3 border-b border-zinc-100 dark:border-zinc-800 mb-1">
+                    <p className="font-bold text-zinc-900 dark:text-white">{user?.name}</p>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">{user?.email}</p>
+                    <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-medium text-[10px]">
                       <Sparkles className="w-3 h-3" /> {user?.role}
                     </div>
                   </div>
@@ -118,10 +133,10 @@ export const Header: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors font-semibold text-left mono"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors font-semibold text-left"
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span>SIGN_OUT</span>
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign out</span>
                   </button>
                 </motion.div>
               </>

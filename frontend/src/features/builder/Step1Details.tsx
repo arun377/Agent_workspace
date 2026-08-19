@@ -25,28 +25,28 @@ export const Step1Details: React.FC<Step1DetailsProps> = ({ form }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Agent Name */}
         <div className="md:col-span-2">
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+          <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
             Agent Name *
           </label>
           <input
             {...register('name')}
-            placeholder="e.g. Technical Support & Troubleshooting Specialist"
-            className="w-full px-4 py-2.5 rounded-xl text-xs glass-input text-slate-900 dark:text-slate-100 font-semibold"
+            placeholder="e.g. Technical Support Specialist"
+            className="w-full px-4 py-2.5 rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100 font-semibold border border-zinc-200 dark:border-zinc-800"
           />
           {errors.name && <p className="text-[11px] text-rose-500 mt-1 font-medium">{errors.name.message}</p>}
         </div>
 
         {/* Category */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+          <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
             Category *
           </label>
           <select
             {...register('category')}
-            className="w-full px-4 py-2.5 rounded-xl text-xs glass-input text-slate-900 dark:text-slate-100 font-medium bg-white dark:bg-slate-900"
+            className="w-full px-4 py-2.5 rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100 font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
           >
             {CATEGORIES.filter((c) => c !== 'All Categories').map((cat) => (
-              <option key={cat} value={cat} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+              <option key={cat} value={cat} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
                 {cat}
               </option>
             ))}
@@ -56,14 +56,14 @@ export const Step1Details: React.FC<Step1DetailsProps> = ({ form }) => {
 
       {/* Description */}
       <div>
-        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+        <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
           Agent Description *
         </label>
         <textarea
           {...register('description')}
           rows={3}
           placeholder="Briefly explain what tasks this agent performs and its target capabilities..."
-          className="w-full p-3 rounded-xl text-xs glass-input text-slate-900 dark:text-slate-100 leading-relaxed"
+          className="w-full p-3.5 rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100 leading-relaxed border border-zinc-200 dark:border-zinc-800"
         />
         {errors.description && (
           <p className="text-[11px] text-rose-500 mt-1 font-medium">{errors.description.message}</p>
@@ -72,8 +72,8 @@ export const Step1Details: React.FC<Step1DetailsProps> = ({ form }) => {
 
       {/* Model Selection Cards */}
       <div className="space-y-3">
-        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-          Select Primary AI Model Engine *
+        <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+          Primary Model Engine *
         </label>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -90,27 +90,27 @@ export const Step1Details: React.FC<Step1DetailsProps> = ({ form }) => {
                 }}
                 className={`p-4 rounded-2xl cursor-pointer border transition-all ${
                   isSelected
-                    ? 'bg-cyan-500/10 border-cyan-600 shadow-md shadow-cyan-500/10 ring-1 ring-cyan-600/50'
-                    : 'glass-card border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'
+                    ? 'border-zinc-900 dark:border-white ring-1 ring-zinc-900/10 dark:ring-white/10 bg-zinc-100/60 dark:bg-zinc-800/60 shadow-xs'
+                    : 'glass-card border-zinc-200 dark:border-zinc-800/70 hover:border-zinc-400 dark:hover:border-zinc-600'
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Cpu className={`w-4 h-4 ${isSelected ? 'text-cyan-700 dark:text-cyan-400' : 'text-slate-500 dark:text-slate-400'}`} />
-                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    <Cpu className={`w-4 h-4 ${isSelected ? 'text-zinc-900 dark:text-white' : 'text-zinc-400'}`} />
+                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
                       {model.name}
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-transparent">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800">
                     {model.badge}
                   </span>
                 </div>
 
-                <p className="text-[11px] text-slate-700 dark:text-slate-300 line-clamp-2 leading-relaxed font-normal">
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed font-normal">
                   {model.description}
                 </p>
 
-                <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px] font-mono text-slate-600 dark:text-slate-400 font-semibold">
+                <div className="mt-3 pt-2.5 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[10px] mono text-zinc-500 font-medium">
                   <span>Speed: {model.speed}</span>
                   <span>{model.provider}</span>
                 </div>
@@ -121,15 +121,15 @@ export const Step1Details: React.FC<Step1DetailsProps> = ({ form }) => {
       </div>
 
       {/* Temperature Slider & Configuration */}
-      <div className="glass-card rounded-2xl p-5 border border-slate-200 dark:border-white/5 space-y-4">
+      <div className="glass-card rounded-2xl p-5 border border-zinc-200/80 dark:border-zinc-800/80 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Thermometer className="w-4 h-4 text-amber-500" />
             <div>
-              <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+              <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
                 Temperature (Creativity)
               </h4>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 Controls randomness. Lower values (0.1) are deterministic; higher values (0.9) are creative.
               </p>
             </div>
@@ -143,13 +143,13 @@ export const Step1Details: React.FC<Step1DetailsProps> = ({ form }) => {
               max="1.0"
               value={currentTemp}
               onChange={(e) => setValue('temperature', parseFloat(e.target.value) || 0.3)}
-              className="w-16 px-2 py-1 rounded-lg text-xs font-mono font-bold text-center glass-input text-cyan-600 dark:text-cyan-400"
+              className="w-16 px-2 py-1 rounded-lg text-xs mono font-bold text-center glass-input text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800"
             />
           </div>
         </div>
 
         {/* Range Slider */}
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <input
             type="range"
             min="0.0"
@@ -157,12 +157,12 @@ export const Step1Details: React.FC<Step1DetailsProps> = ({ form }) => {
             step="0.05"
             value={currentTemp}
             onChange={(e) => setValue('temperature', parseFloat(e.target.value))}
-            className="w-full h-1.5 bg-slate-200 dark:bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+            className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-900 dark:accent-white"
           />
-          <div className="flex justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            <span>Precise & Analytical (0.0)</span>
+          <div className="flex justify-between text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+            <span>Precise (0.0)</span>
             <span>Balanced (0.5)</span>
-            <span>Creative & Diverse (1.0)</span>
+            <span>Creative (1.0)</span>
           </div>
         </div>
       </div>

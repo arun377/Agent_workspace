@@ -66,27 +66,27 @@ export const CustomToolModal: React.FC<CustomToolModalProps> = ({ isOpen, onClos
         {/* Name & Category */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Tool Name *
             </label>
             <div className="relative">
-              <Wrench className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+              <Wrench className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
               <input
                 {...register('name')}
                 placeholder="e.g. Stripe Customer Lookup"
-                className="w-full pl-9 pr-3 py-2 rounded-xl text-xs glass-input text-slate-900 dark:text-slate-100"
+                className="w-full pl-9 pr-3 py-2 rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100"
               />
             </div>
             {errors.name && <p className="text-[11px] text-rose-500 mt-1 font-medium">{errors.name.message}</p>}
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Category
             </label>
             <select
               {...register('category')}
-              className="w-full px-3 py-2 rounded-xl text-xs glass-input text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900"
+              className="w-full px-3 py-2 rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900"
             >
               <option value="custom">Custom API</option>
               <option value="data">Data / DB</option>
@@ -99,15 +99,15 @@ export const CustomToolModal: React.FC<CustomToolModalProps> = ({ isOpen, onClos
 
         {/* Description */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+          <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
             Tool Description *
           </label>
           <div className="relative">
-            <FileText className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+            <FileText className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
             <input
               {...register('description')}
               placeholder="Explains to the AI agent when and how to invoke this tool..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl text-xs glass-input text-slate-900 dark:text-slate-100"
+              className="w-full pl-9 pr-3 py-2 rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100"
             />
           </div>
           {errors.description && (
@@ -118,12 +118,12 @@ export const CustomToolModal: React.FC<CustomToolModalProps> = ({ isOpen, onClos
         {/* Endpoint URL & HTTP Method */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div className="sm:col-span-1">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               HTTP Method
             </label>
             <select
               {...register('httpMethod')}
-              className="w-full px-3 py-2 rounded-xl text-xs glass-input font-bold text-cyan-600 dark:text-cyan-400 bg-white dark:bg-slate-900"
+              className="w-full px-3 py-2 rounded-xl text-xs glass-input font-bold text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900"
             >
               <option value="GET">GET</option>
               <option value="POST">POST</option>
@@ -133,15 +133,15 @@ export const CustomToolModal: React.FC<CustomToolModalProps> = ({ isOpen, onClos
           </div>
 
           <div className="sm:col-span-3">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Endpoint URL *
             </label>
             <div className="relative">
-              <Globe className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+              <Globe className="absolute left-3 top-2.5 w-4 h-4 text-zinc-400" />
               <input
                 {...register('endpointUrl')}
                 placeholder="https://api.yourdomain.com/v1/resource"
-                className="w-full pl-9 pr-3 py-2 rounded-xl text-xs glass-input text-slate-900 dark:text-slate-100 font-mono"
+                className="w-full pl-9 pr-3 py-2 rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100 font-mono"
               />
             </div>
             {errors.endpointUrl && (
@@ -153,17 +153,17 @@ export const CustomToolModal: React.FC<CustomToolModalProps> = ({ isOpen, onClos
         {/* Schema JSON */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
               Input Parameter JSON Schema *
             </label>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1">
-              <Code className="w-3 h-3 text-cyan-500" /> JSON Format
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono flex items-center gap-1">
+              <Code className="w-3 h-3 text-zinc-500" /> JSON Format
             </span>
           </div>
           <textarea
             {...register('schema')}
             rows={4}
-            className="w-full p-3 rounded-xl text-xs font-mono glass-input text-slate-900 dark:text-slate-100 leading-relaxed"
+            className="w-full p-3 rounded-xl text-xs font-mono glass-input text-zinc-900 dark:text-zinc-100 leading-relaxed"
           />
           {errors.schema && (
             <p className="text-[11px] text-rose-500 mt-1 font-medium">{errors.schema.message}</p>
@@ -171,18 +171,18 @@ export const CustomToolModal: React.FC<CustomToolModalProps> = ({ isOpen, onClos
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-200 dark:border-zinc-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-md shadow-cyan-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md disabled:opacity-50"
           >
             <Sparkles className="w-4 h-4" />
             <span>Save & Attach Tool</span>

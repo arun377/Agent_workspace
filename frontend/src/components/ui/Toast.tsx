@@ -47,17 +47,17 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, x: 50, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="pointer-events-auto p-4 rounded-xl popup-solid shadow-2xl flex items-start gap-3 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800"
+              className="pointer-events-auto p-4 rounded-xl popup-solid shadow-2xl flex items-start gap-3 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800"
             >
               <div className="mt-0.5 shrink-0">
                 {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
                 {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-rose-500" />}
-                {toast.type === 'info' && <Info className="w-5 h-5 text-cyan-500" />}
+                {toast.type === 'info' && <Info className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />}
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-bold tracking-wide">{toast.title}</h4>
                 {toast.description && (
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 line-clamp-2">
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 line-clamp-2">
                     {toast.description}
                   </p>
                 )}
@@ -65,7 +65,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               <button
                 type="button"
                 onClick={() => removeToast(toast.id)}
-                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1 rounded-md"
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors p-1 rounded-md"
               >
                 <X className="w-4 h-4" />
               </button>
