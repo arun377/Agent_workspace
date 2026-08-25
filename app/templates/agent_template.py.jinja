@@ -18,7 +18,7 @@ except ImportError:
     pass  # We will handle missing MCP package later if needed
 
 AGENT_NAME = "{{ agent_name }}"
-PROMPT = "{{ prompt }}"
+PROMPT = """{{ prompt }}"""
 MODEL_STRING = "{{ model }}"
 TOOL_NAMES = {{ tools | tojson }}
 MCP_SERVERS = {{ mcp_servers | default([]) | tojson }}

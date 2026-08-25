@@ -47,7 +47,11 @@
 
   4. Run the backend
 
-  uv run uvicorn app.main:app --reload
+  uvicorn app.main:app --reload --reload-dir app
+
+
+  uvicorn app.main:app --reload --reload-exclude "generated_agents"
+
 
   Then check:
 
