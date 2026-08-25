@@ -125,10 +125,6 @@ export const AgentCard: React.FC<AgentCardProps> = ({
                 <span className="mono text-[10px] text-zinc-500 font-bold">
                   {agent.category}
                 </span>
-                <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700" />
-                <span className="mono text-[10px] text-zinc-500 font-bold">
-                  T:{agent.temperature}
-                </span>
               </div>
             </div>
           </div>
@@ -153,7 +149,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
                   e.stopPropagation();
                   setIsMenuOpen(!isMenuOpen);
                 }}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
@@ -218,9 +214,11 @@ export const AgentCard: React.FC<AgentCardProps> = ({
         </div>
 
         {/* Description */}
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2 mt-2 mb-4 leading-relaxed font-normal">
-          {agent.description || 'No description provided.'}
-        </p>
+        {agent.description && (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2 mt-2 mb-4 leading-relaxed font-normal">
+            {agent.description}
+          </p>
+        )}
       </div>
 
       {/* Footer Info & Tools Badges */}

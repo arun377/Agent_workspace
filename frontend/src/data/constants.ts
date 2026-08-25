@@ -20,6 +20,22 @@ export interface ModelInfo {
 export const AI_MODELS_INFO: Record<string, ModelInfo[]> = {
   "Google Gemini": [
     {
+      id: 'gemini/gemini-1.5-pro-latest',
+      name: 'Gemini 1.5 Pro (Latest)',
+      badge: 'New',
+      description: 'Latest Gemini 1.5 Pro model with high capabilities and multimodal reasoning.',
+      speed: 'Fast',
+      cost: 'Premium'
+    },
+    {
+      id: 'gemini/gemini-1.5-flash-latest',
+      name: 'Gemini 1.5 Flash (Latest)',
+      badge: 'New',
+      description: 'Latest Gemini 1.5 Flash for maximum speed and efficiency.',
+      speed: 'Blazing',
+      cost: 'Economy'
+    },
+    {
       id: 'gemini/gemma-4-31b-it',
       name: 'Gemma 4 31B IT',
       badge: 'Open Weights',
@@ -63,17 +79,32 @@ export const AI_MODELS_INFO: Record<string, ModelInfo[]> = {
   ],
   "Groq": [
     {
-      id: 'groq/llama3-70b-8192',
-      name: 'Llama 3 70B',
-      badge: 'Real-time',
-      description: 'Ultra-fast Llama 3 execution running on Groq LPUs.',
+      id: 'groq/openai/gpt-oss-20b',
+      name: 'GPT OSS 20B',
+      badge: 'Fast',
+      description: 'Efficient open source GPT variant.',
       speed: 'Instant',
       cost: 'Economy'
     },
     {
-      id: 'groq/mixtral-8x7b-32768',
-      name: 'Mixtral 8x7B',
-      description: 'Fast Mixture of Experts model optimized for speed.',
+      id: 'groq/openai/gpt-oss-120b',
+      name: 'GPT OSS 120B',
+      badge: 'Powerful',
+      description: 'High capacity open source GPT model.',
+      speed: 'Fast',
+      cost: 'Standard'
+    },
+    {
+      id: 'groq/qwen/qwen3.6-27b',
+      name: 'Qwen 3.6 27B',
+      description: 'Highly capable reasoning model.',
+      speed: 'Instant',
+      cost: 'Economy'
+    },
+    {
+      id: 'groq/minimaxai/minimax-m2.7',
+      name: 'MiniMax M2.7',
+      description: 'Advanced local/remote hybrid model.',
       speed: 'Instant',
       cost: 'Economy'
     }

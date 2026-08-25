@@ -123,7 +123,7 @@ export const LoginPage: React.FC = () => {
         </form>
 
         {/* Features footer chips */}
-        <div className="mt-8 flex items-center justify-center gap-5 text-[10px] font-bold text-zinc-400 dark:text-zinc-500">
+        <div className="mt-8 flex items-center justify-center gap-5 text-[10px] font-bold text-zinc-400 dark:text-zinc-400">
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100" /> Multi-Model
           </span>
