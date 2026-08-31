@@ -64,6 +64,7 @@ if __name__ == "__main__":
     input_text = sys.stdin.read()
     try:
         result = asyncio.run(run(input_text))
+        result = asyncio.run(run(input_text))
         print(json.dumps({"status": "success", "result": result}))
     except Exception as e:
         print(json.dumps({"status": "error", "result": str(e)}))
