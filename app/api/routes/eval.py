@@ -1,58 +1,111 @@
 import json
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
-from deepeval.dataset import Golden
-from deepeval.metrics import TaskCompletionMetric
-from deepeval.models import GeminiModel
-import os
 
+from app.schemas.eval import (
+    DeterministicEvalRequest,
+    NonDeterministicEvalRequest,
+    EvalReportResponse,
+    EvalCaseResult,
+    EvalMetricResult,
+)
 from app.services.eval_adaptor import make_agent_fn
-from app.schemas.eval import EvalReportResponse, EvalCaseResult, EvalMetricResult
-from app.services.metric_registry import build_metrics
-from evaluator import evaluate_agent
-from pydantic import BaseModel
+from app.services.metric_registry import (
+    build_deterministic_metrics,
+    build_non_deterministic_metrics,
+    get_default_judge_model
+)
+from evaluator.runner import evaluate_agent
 
-router = APIRouter(prefix="/agents", tags=["evaluation"])
+router = APIRouter(prefix="/agents", tags=["eval"])
 
 
-class EvaluateRequest(BaseModel):
-    metrics: list[str] = ["task_completion"]
+@router.post("/{name}/evaluate/deterministic", response_model=EvalReportResponse)
+def evaluate_deterministic(name: str, request: DeterministicEvalRequest):
+    eval_file = Path("generated_agents") / name / "eval_data.json"
+    if not eval_file.exists():
+        raise HTTPException(status_code=404, detail=f"No eval dataset found for agent '{name}'")
 
-@router.post("/{name}/evaluate", response_model=EvalReportResponse)
-def evaluate(name: str,request: EvaluateRequest):
-    eval_data_path = Path("generated_agents") / name / "eval_data.json"
-    if not eval_data_path.exists():
-        raise HTTPException(status_code=404, detail=f"No eval data found for agent '{name}'")
+    raw_data = json.loads(eval_file.read_text())
 
-    inputs = json.loads(eval_data_path.read_text())
-    goldens = [Golden(input=i) for i in inputs]
+    approved_cases = [
+        item for item in raw_data
+        if isinstance(item, dict) and item.get("reviewed") is True and item.get("expected_output")
+    ]
 
-    judge_model = GeminiModel(model="gemini-3.5-flash", api_key=os.getenv("GEMINI_API_KEY"))
-    metrics = build_metrics(request.metrics, judge_model)
+    if not approved_cases:
+        raise HTTPException(
+            status_code=400,
+            detail="No reviewed test cases found. Please approve cases (reviewed: true) via PATCH before running deterministic evaluation."
+        )
 
+    judge_model = get_default_judge_model()
+    metrics = build_deterministic_metrics(request.metrics, judge_model)
     agent_fn = make_agent_fn(name)
-    reports = evaluate_agent(agent_fn=agent_fn, goldens=goldens, metrics=metrics)
 
+    # reports is a list[EvalReport]
+    reports = evaluate_agent(agent_fn, approved_cases, metrics)
+
+    # Iterate directly over reports (not reports.results)
     results = [
         EvalCaseResult(
-            agent_input=r.agent_input,
-            agent_output=r.agent_output if isinstance(r.agent_output, str) else r.agent_output.get("output", str(r.agent_output)),
+            agent_input=c.agent_input,
+            agent_output=c.agent_output,
+            expected_output=getattr(c, "expected_output", None),
             metric_results=[
                 EvalMetricResult(
                     metric_name=m.metric_name,
                     score=m.score,
                     threshold=m.threshold,
                     passed=m.passed,
-                    reason=m.reason,
-                )
-                for m in r.metric_results
-            ],
-        )
-        for r in reports
+                    reason=m.reason
+                ) for m in c.metric_results
+            ]
+        ) for c in reports
     ]
 
     return EvalReportResponse(
         agent_name=name,
-        results=results,
-        all_passed=all(r.all_passed for r in results),
+        evaluation_type="deterministic",
+        total_cases=len(results),
+        all_passed=all(case.all_passed for case in results),
+        results=results
+    )
+
+
+@router.post("/{name}/evaluate/non-deterministic", response_model=EvalReportResponse)
+def evaluate_non_deterministic(name: str, request: NonDeterministicEvalRequest):
+    test_cases = [{"input": inp, "expected_output": None} for inp in request.inputs]
+
+    judge_model = get_default_judge_model()
+    metrics = build_non_deterministic_metrics(request.metrics, judge_model)
+    agent_fn = make_agent_fn(name)
+
+    # reports is a list[EvalReport]
+    reports = evaluate_agent(agent_fn, test_cases, metrics)
+
+    # Iterate directly over reports (not reports.results)
+    results = [
+        EvalCaseResult(
+            agent_input=c.agent_input,
+            agent_output=c.agent_output,
+            expected_output=None,
+            metric_results=[
+                EvalMetricResult(
+                    metric_name=m.metric_name,
+                    score=m.score,
+                    threshold=m.threshold,
+                    passed=m.passed,
+                    reason=m.reason
+                ) for m in c.metric_results
+            ]
+        ) for c in reports
+    ]
+
+    return EvalReportResponse(
+        agent_name=name,
+        evaluation_type="non_deterministic",
+        total_cases=len(results),
+        all_passed=all(case.all_passed for case in results),
+        results=results
     )

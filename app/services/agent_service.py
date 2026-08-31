@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 import re
@@ -28,6 +29,9 @@ def generate_agent(name: str, prompt: str, model: str, tools : list[str]) -> str
     
     output_file = output_dir / "agent.py"
     output_file.write_text(rendered_code)
+
+    config_file = output_dir / "config.json"
+    config_file.write_text(json.dumps({"prompt": prompt, "model": model, "tools": tools}))
 
     
     return str(output_file)
