@@ -19,15 +19,18 @@ import { Agent, AgentStatus, Tool } from '../../types/agent';
 import { AgentCard } from './AgentCard';
 import { GlassModal } from '../../components/ui/GlassModal';
 import { useToast } from '../../components/ui/Toast';
+import { AgentTestModal } from './AgentTestModal';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { agents, tools, deleteAgent, resetToDefaults, fetchAgents, isLoading, error } = useAgentStore();
+  const { agents, tools, deleteAgent, resetToDefaults, fetchAgents, fetchTools, fetchMcpServers, isLoading, error } = useAgentStore();
   const { showToast } = useToast();
 
   useEffect(() => {
     fetchAgents();
-  }, [fetchAgents]);
+    fetchTools();
+    fetchMcpServers();
+  }, [fetchAgents, fetchTools, fetchMcpServers]);
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,6 +43,9 @@ export const DashboardPage: React.FC = () => {
 
   // Modal State for Delete Confirmation
   const [deletingAgent, setDeletingAgent] = useState<Agent | null>(null);
+  
+  // Modal State for Testing
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
 
   // Map tools by ID for fast lookup
   const toolsMap = useMemo(() => {
@@ -296,19 +302,18 @@ export const DashboardPage: React.FC = () => {
                   </div>
                 </div>
 
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed font-normal">
-                  {inspectedAgent.description || 'No description provided.'}
-                </p>
+                {inspectedAgent.description && (
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed font-normal">
+                    {inspectedAgent.description}
+                  </p>
+                )}
 
                 <div className="space-y-2 pt-3 border-t border-zinc-100 dark:border-zinc-800 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-500 font-medium">Category</span>
                     <span className="font-semibold text-zinc-800 dark:text-zinc-200">{inspectedAgent.category}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-500 font-medium">Temperature</span>
-                    <span className="mono font-semibold text-zinc-800 dark:text-zinc-200">{inspectedAgent.temperature}</span>
-                  </div>
+
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-500 font-medium">System Prompt</span>
                     <span className="mono font-semibold text-zinc-800 dark:text-zinc-200">{inspectedAgent.systemPrompt.length} chars</span>
@@ -351,7 +356,7 @@ export const DashboardPage: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => navigate(`/agents/edit/${inspectedAgent.id}?step=4`)}
+                    onClick={() => setIsTestModalOpen(true)}
                     className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition-colors flex items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-700"
                   >
                     <Play className="w-3.5 h-3.5" />
@@ -403,6 +408,13 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
       </GlassModal>
+
+      <AgentTestModal
+        agent={inspectedAgent}
+        toolsMap={toolsMap}
+        isOpen={isTestModalOpen}
+        onClose={() => setIsTestModalOpen(false)}
+      />
     </div>
   );
 };
