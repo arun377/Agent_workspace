@@ -10,6 +10,8 @@ export interface Tool {
   description: string;
   category: ToolCategory;
   iconName: string; // Lucide icon identifier
+  type?: 'builtin' | 'mcp';
+  mcp_server_id?: string | null;
   isCustom?: boolean;
   endpointUrl?: string;
   httpMethod?: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -17,10 +19,6 @@ export interface Tool {
   schema?: string;
 }
 
-export interface McpServer {
-  url: string;
-  description?: string;
-}
 
 export interface Agent {
   id: string;
