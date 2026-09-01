@@ -48,7 +48,7 @@ def parse_agent_file(file_path: Path) -> dict:
         for node in parsed.body:
             if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
                 name = node.targets[0].id
-                if name in ["AGENT_NAME", "PROMPT", "MODEL_STRING", "TOOL_NAMES", "MCP_SERVERS"]:
+                if name in ["AGENT_NAME", "PROMPT", "MODEL_STRING", "SELECTED_TOOL_IDS"]:
                     try:
                         details[name] = ast.literal_eval(node.value)
                     except Exception:
