@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+
 
 interface User {
   username: string;
@@ -16,9 +16,7 @@ interface AuthState {
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
+export const useAuthStore = create<AuthState>()((set) => ({
       user: null,
       isAuthenticated: false, // User must log in first
 
@@ -40,9 +38,4 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         set({ user: null, isAuthenticated: false });
       },
-    }),
-    {
-      name: 'agent-studio-auth-storage',
-    }
-  )
-);
+}));

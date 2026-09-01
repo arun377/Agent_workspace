@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+
 import { Agent, Tool, CustomToolFormData, AgentStatus, AIModel } from '../types/agent';
 
 interface AgentState {
@@ -30,9 +30,7 @@ const AVATAR_GRADIENTS = [
   'from-violet-600 to-fuchsia-600',
 ];
 
-export const useAgentStore = create<AgentState>()(
-  persist(
-    (set, get) => ({
+export const useAgentStore = create<AgentState>()((set, get) => ({
       agents: [],
       tools: [],
       isLoading: false,
@@ -287,13 +285,4 @@ export const useAgentStore = create<AgentState>()(
           tools: [],
         });
       },
-    }),
-    {
-      name: 'agent-studio-agents-storage-v2',
-      partialize: (state) => ({
-        // We only persist agents; tools should be fetched live
-        agents: state.agents,
-      }),
-    }
-  )
-);
+}));
