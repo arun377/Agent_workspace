@@ -1,0 +1,34 @@
+#!/bin/bash
+find src/features -name "*.tsx" -type f | xargs sed -i \
+  -e 's/text-slate-900 dark:text-slate-100/text-slate-100/g' \
+  -e 's/text-slate-500 dark:text-slate-400/text-slate-400/g' \
+  -e 's/text-slate-600 dark:text-slate-400/text-slate-400/g' \
+  -e 's/text-slate-600 dark:text-slate-300/text-slate-300/g' \
+  -e 's/text-slate-700 dark:text-slate-300/text-slate-300/g' \
+  -e 's/border-slate-200\/80 dark:border-slate-800\/80/border-white\/5/g' \
+  -e 's/border-slate-200\/60 dark:border-slate-800\/60/border-white\/5/g' \
+  -e 's/border-slate-200\/60 dark:border-slate-700\/60/border-white\/5/g' \
+  -e 's/bg-slate-100\/80 dark:bg-slate-800\/60/bg-black\/40/g' \
+  -e 's/bg-slate-100\/90 dark:bg-slate-800\/80/bg-black\/40/g' \
+  -e 's/bg-slate-200\/80 dark:bg-slate-800/bg-white\/10/g' \
+  -e 's/bg-slate-200\/60 dark:bg-slate-800/bg-white\/10/g' \
+  -e 's/text-indigo-600 dark:text-indigo-400/text-cyan-400/g' \
+  -e 's/text-indigo-600 dark:text-indigo-300/text-cyan-400/g' \
+  -e 's/bg-indigo-500\/10 dark:bg-indigo-500\/15/bg-cyan-500\/10/g' \
+  -e 's/bg-indigo-500\/10 text-indigo-600/bg-cyan-500\/10 text-cyan-400/g' \
+  -e 's/border-indigo-500\/20/border-cyan-500\/20/g' \
+  -e 's/shadow-indigo-500\/10/shadow-cyan-500\/10/g' \
+  -e 's/shadow-indigo-500\/20/shadow-cyan-500\/20/g' \
+  -e 's/shadow-indigo-500\/30/shadow-cyan-500\/30/g' \
+  -e 's/ring-indigo-500\/50/ring-cyan-500\/50/g' \
+  -e 's/border-indigo-500/border-cyan-500/g' \
+  -e 's/hover:text-indigo-600 dark:hover:text-indigo-400/hover:text-cyan-400/g' \
+  -e 's/hover:bg-indigo-500\/20/hover:bg-cyan-500\/20/g' \
+  -e 's/text-emerald-600 dark:text-emerald-400/text-emerald-400/g' \
+  -e 's/text-amber-600 dark:text-amber-400/text-amber-400/g' \
+  -e 's/bg-amber-500\/10 text-amber-600/bg-amber-500\/10 text-amber-400/g' \
+  -e 's/text-indigo-500/text-cyan-400/g' \
+  -e 's/border-slate-300 dark:border-slate-700/border-white\/10/g' \
+  -e 's/hover:border-slate-300 dark:hover:border-slate-700/hover:border-white\/10/g' \
+  -e 's/bg-white\/50 dark:bg-slate-900\/50/bg-black\/40/g' \
+  -e 's/accent-indigo-600/accent-cyan-400/g'
