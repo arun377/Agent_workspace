@@ -29,7 +29,6 @@ const agentFormSchema = z.object({
   model: z.string().min(1, 'Please select a model'),
   systemPrompt: z.string().min(10, 'System instructions must be at least 10 characters'),
   toolIds: z.array(z.string()),
-  mcpServers: z.array(z.string()).optional(),
 });
 
 export type AgentBuilderFormData = z.infer<typeof agentFormSchema>;
@@ -49,7 +48,7 @@ function useOutsideAlerter(ref: React.RefObject<HTMLDivElement | null>, onClickO
 export const AgentBuilderPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
-  const { agents, createAgent, updateAgent, tools, mcpServers, fetchTools, fetchMcpServers } = useAgentStore();
+  const { agents, createAgent, updateAgent, tools, fetchTools } = useAgentStore();
   const { showToast } = useToast();
 
   const isEditing = Boolean(id);
@@ -57,8 +56,7 @@ export const AgentBuilderPage: React.FC = () => {
 
   useEffect(() => {
     fetchTools();
-    fetchMcpServers();
-  }, [fetchTools, fetchMcpServers]);
+  }, [fetchTools]);
 
   const form = useForm<AgentBuilderFormData>({
     resolver: zodResolver(agentFormSchema),
@@ -71,7 +69,6 @@ export const AgentBuilderPage: React.FC = () => {
         existingAgent?.systemPrompt ||
         `You are a specialized AI assistant.\nYour goal is to assist users with query.\nAlways maintain a professional tone.`,
       toolIds: existingAgent?.toolIds || [],
-      mcpServers: existingAgent?.mcpServers || [],
     },
   });
 
@@ -79,17 +76,14 @@ export const AgentBuilderPage: React.FC = () => {
 
   const currentModel = watch('model');
   const selectedToolIds = watch('toolIds') || [];
-  const selectedMcpServers = watch('mcpServers') || [];
 
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [modelSearch, setModelSearch] = useState('');
   const [toolSearch, setToolSearch] = useState('');
-  const [mcpSearch, setMcpSearch] = useState('');
   
   const [isProviderOpen, setIsProviderOpen] = useState(false);
   const [isModelOpen, setIsModelOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
-  const [isMcpOpen, setIsMcpOpen] = useState(false);
   
   // Global Tooltip State tracking cursor X position
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
@@ -97,12 +91,10 @@ export const AgentBuilderPage: React.FC = () => {
   const providerRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
-  const mcpRef = useRef<HTMLDivElement>(null);
   
-  useOutsideAlerter(providerRef, () => setIsProviderOpen(false));
-  useOutsideAlerter(modelRef, () => setIsModelOpen(false));
-  useOutsideAlerter(toolsRef, () => setIsToolsOpen(false));
-  useOutsideAlerter(mcpRef, () => setIsMcpOpen(false));
+  useOutsideAlerter(providerRef, () => { setIsProviderOpen(false); setTooltip(null); });
+  useOutsideAlerter(modelRef, () => { setIsModelOpen(false); setTooltip(null); });
+  useOutsideAlerter(toolsRef, () => { setIsToolsOpen(false); setTooltip(null); });
 
   useEffect(() => {
     if (currentModel && !selectedProvider) {
@@ -122,7 +114,6 @@ export const AgentBuilderPage: React.FC = () => {
         model: existingAgent.model,
         systemPrompt: existingAgent.systemPrompt,
         toolIds: existingAgent.toolIds,
-        mcpServers: existingAgent.mcpServers,
       });
     }
   }, [existingAgent, form]);
@@ -150,7 +141,6 @@ export const AgentBuilderPage: React.FC = () => {
           ...values,
           description: values.description || '',
           category: values.category || 'Custom',
-          mcpServers: values.mcpServers || [],
           status: statusToSave,
         });
         showToast('Success', `${values.name} created successfully`, 'success');
@@ -165,16 +155,10 @@ export const AgentBuilderPage: React.FC = () => {
     const isSelected = selectedToolIds.includes(toolId);
     setValue('toolIds', isSelected ? selectedToolIds.filter(id => id !== toolId) : [...selectedToolIds, toolId]);
   };
-
-  const toggleMcpServer = (url: string) => {
-    const isSelected = selectedMcpServers.includes(url);
-    setValue('mcpServers', isSelected ? selectedMcpServers.filter(u => u !== url) : [...selectedMcpServers, url]);
-  };
   
   const availableModels = selectedProvider ? AI_MODELS_INFO[selectedProvider] || [] : [];
   const filteredModels = availableModels.filter(m => m.name.toLowerCase().includes(modelSearch.toLowerCase()) || m.id.toLowerCase().includes(modelSearch.toLowerCase()));
   const filteredTools = tools.filter(t => t.name.toLowerCase().includes(toolSearch.toLowerCase()) || t.description.toLowerCase().includes(toolSearch.toLowerCase()));
-  const filteredMcp = mcpServers.filter(s => s.url.toLowerCase().includes(mcpSearch.toLowerCase()));
 
   // Helper for mouse tracking tooltip
   const handleMouseMove = (e: React.MouseEvent, text: string) => {
@@ -250,7 +234,7 @@ export const AgentBuilderPage: React.FC = () => {
                     <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Model Provider *</label>
                     <button 
                       type="button" 
-                      onClick={() => setIsProviderOpen(!isProviderOpen)}
+                      onClick={() => { setIsProviderOpen(!isProviderOpen); setTooltip(null); }}
                       className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100 font-semibold border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
                     >
                       <div className="flex items-center gap-2">
@@ -274,6 +258,7 @@ export const AgentBuilderPage: React.FC = () => {
                                 setSelectedProvider(provider);
                                 setValue('model', '');
                                 setIsProviderOpen(false);
+                                setTooltip(null);
                               }}
                               className={`px-3 py-2 rounded-lg text-xs font-semibold text-left transition-colors ${selectedProvider === provider ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-white'}`}
                             >
@@ -291,7 +276,7 @@ export const AgentBuilderPage: React.FC = () => {
                     <button 
                       type="button" 
                       disabled={!selectedProvider}
-                      onClick={() => setIsModelOpen(!isModelOpen)}
+                      onClick={() => { setIsModelOpen(!isModelOpen); setTooltip(null); }}
                       className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100 font-semibold border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 disabled:opacity-50 disabled:pointer-events-none transition-colors"
                     >
                       <div className="flex items-center gap-2 truncate pr-2">
@@ -329,6 +314,7 @@ export const AgentBuilderPage: React.FC = () => {
                                 onClick={() => {
                                   setValue('model', m.id);
                                   setIsModelOpen(false);
+                                  setTooltip(null);
                                   setModelSearch('');
                                   setTooltip(null);
                                 }}
@@ -382,7 +368,7 @@ export const AgentBuilderPage: React.FC = () => {
                   <div ref={toolsRef} className="relative z-20">
                     <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">Attached Tools</label>
                     <div 
-                      onClick={() => setIsToolsOpen(!isToolsOpen)}
+                      onClick={() => { setIsToolsOpen(!isToolsOpen); setTooltip(null); }}
                       className="w-full flex items-center justify-between px-2 py-1.5 min-h-[42px] rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100 font-semibold border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer"
                     >
                       <div className="flex flex-wrap items-center gap-1.5 flex-1 pr-2">
@@ -457,80 +443,7 @@ export const AgentBuilderPage: React.FC = () => {
                     </AnimatePresence>
                   </div>
 
-                  {/* MCP Servers Combobox */}
-                  <div ref={mcpRef} className="relative z-10 pt-2">
-                    <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">MCP Servers</label>
-                    <div 
-                      onClick={() => setIsMcpOpen(!isMcpOpen)}
-                      className="w-full flex items-center justify-between px-2 py-1.5 min-h-[42px] rounded-xl text-xs glass-input text-zinc-900 dark:text-zinc-100 font-semibold border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer"
-                    >
-                      <div className="flex flex-wrap items-center gap-1.5 flex-1 pr-2">
-                        {selectedMcpServers.length === 0 && (
-                          <div className="flex items-center gap-2 px-2 text-zinc-500 py-1">
-                            <Server className="w-4 h-4 text-emerald-500/70" />
-                            <span>Select MCPs...</span>
-                          </div>
-                        )}
-                        {selectedMcpServers.map(url => (
-                          <div key={url} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 shadow-sm" onClick={(e) => e.stopPropagation()}>
-                            <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 max-w-[120px] truncate">{url}</span>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); toggleMcpServer(url); }} className="ml-0.5 text-emerald-600/50 hover:text-emerald-600 transition-colors">
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0 mx-2" />
-                    </div>
 
-                    <AnimatePresence>
-                      {isMcpOpen && (
-                        <motion.div 
-                          initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
-                          className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl flex flex-col z-30 overflow-hidden"
-                        >
-                          <div className="p-2 border-b border-zinc-100 dark:border-zinc-800">
-                            <div className="relative">
-                              <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-zinc-400" />
-                              <input
-                                type="text"
-                                value={mcpSearch}
-                                onChange={e => setMcpSearch(e.target.value)}
-                                placeholder="Search MCPs..."
-                                className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                              />
-                            </div>
-                          </div>
-                          <div className="max-h-[300px] overflow-y-auto p-1.5 flex flex-col gap-1 scrollbar-thin">
-                            {filteredMcp.length > 0 ? filteredMcp.map((server, idx) => {
-                              const isSelected = selectedMcpServers.includes(server.url);
-                              return (
-                                <button
-                                  key={idx}
-                                  type="button"
-                                  onClick={() => toggleMcpServer(server.url)}
-                                  onMouseMove={(e) => handleMouseMove(e, server.description || 'MCP Endpoint')}
-                                  onMouseLeave={handleMouseLeave}
-                                  className={`flex flex-col px-3 py-2.5 rounded-lg text-left transition-colors ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
-                                >
-                                  <div className="flex items-center justify-between w-full pointer-events-none">
-                                    <div className="flex items-center gap-2.5 overflow-hidden">
-                                      <div className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 border ${isSelected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-zinc-300 dark:border-zinc-600'}`}>
-                                        {isSelected && <Check className="w-2.5 h-2.5" />}
-                                      </div>
-                                      <span className={`text-xs font-bold truncate ${isSelected ? 'text-zinc-900 dark:text-white' : 'text-zinc-700 dark:text-zinc-200'}`}>{server.url}</span>
-                                    </div>
-                                  </div>
-                                </button>
-                              );
-                            }) : (
-                              <div className="p-3 text-center text-xs text-zinc-500">No MCP servers found.</div>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
                 </div>
               </motion.div>
             </div>

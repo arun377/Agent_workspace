@@ -23,14 +23,13 @@ import { AgentTestModal } from './AgentTestModal';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { agents, tools, deleteAgent, resetToDefaults, fetchAgents, fetchTools, fetchMcpServers, isLoading, error } = useAgentStore();
+  const { agents, tools, deleteAgent, resetToDefaults, fetchAgents, fetchTools, isLoading, error } = useAgentStore();
   const { showToast } = useToast();
 
   useEffect(() => {
     fetchAgents();
     fetchTools();
-    fetchMcpServers();
-  }, [fetchAgents, fetchTools, fetchMcpServers]);
+  }, [fetchAgents, fetchTools]);
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,17 +103,6 @@ export const DashboardPage: React.FC = () => {
         <aside className="lg:col-span-3 space-y-4">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Overview</span>
-            <button
-              type="button"
-              onClick={() => {
-                resetToDefaults();
-                showToast('Reset Complete', 'Restored sample agents & tools catalog.', 'info');
-              }}
-              title="Reset Sample Data"
-              className="p-1.5 rounded-lg glass-card text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 border border-zinc-200 dark:border-zinc-800 transition-colors text-xs"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">

@@ -6,21 +6,15 @@ import { Tool } from '../../types/agent';
 interface AgentStateDiagramProps {
   agentName: string;
   tools: Tool[];
-  mcpUrls: string[];
   isProcessing: boolean;
 }
 
 export const AgentStateDiagram: React.FC<AgentStateDiagramProps> = ({
   agentName,
   tools,
-  mcpUrls,
   isProcessing,
 }) => {
-  // Combined satellites
-  const satellites = [
-    ...tools.map((t) => ({ type: 'tool' as const, label: t.name })),
-    ...mcpUrls.map((url) => ({ type: 'mcp' as const, label: url.split('//').pop() || url })),
-  ];
+  const satellites = tools.map((t) => ({ type: t.type || 'tool', label: t.name }));
 
   const numSatellites = satellites.length;
   // If many satellites, scale them down to prevent overlap and fit in space
@@ -79,10 +73,10 @@ export const AgentStateDiagram: React.FC<AgentStateDiagramProps> = ({
         return (
           <motion.div
             key={index}
-            className="absolute top-1/2 left-1/2 z-10"
+            className="absolute z-10"
             style={{ 
-              marginLeft: `${x}%`,
-              marginTop: `${y}%`,
+              left: `${50 + x}%`,
+              top: `${50 + y}%`,
             }}
             initial={{ opacity: 0, scale: 0, x: '-50%', y: '-50%' }}
             animate={{ opacity: 1, scale: scale, x: '-50%', y: '-50%' }}

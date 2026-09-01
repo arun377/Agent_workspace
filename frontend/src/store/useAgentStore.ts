@@ -1,19 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Agent, Tool, CustomToolFormData, AgentStatus, AIModel, McpServer } from '../types/agent';
+import { Agent, Tool, CustomToolFormData, AgentStatus, AIModel } from '../types/agent';
 
 interface AgentState {
   agents: Agent[];
   tools: Tool[];
-  mcpServers: McpServer[];
   isLoading: boolean;
   isToolsLoading: boolean;
-  isMcpServersLoading: boolean;
   error: string | null;
   // Actions
   fetchAgents: () => Promise<void>;
   fetchTools: () => Promise<void>;
-  fetchMcpServers: () => Promise<void>;
   runAgent: (name: string, inputText: string) => Promise<any>;
   createAgent: (agent: Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Agent>;
   updateAgent: (id: string, agent: Partial<Omit<Agent, 'id' | 'createdAt'>>) => void;
@@ -38,10 +35,8 @@ export const useAgentStore = create<AgentState>()(
     (set, get) => ({
       agents: [],
       tools: [],
-      mcpServers: [],
       isLoading: false,
       isToolsLoading: false,
-      isMcpServersLoading: false,
       error: null,
 
       fetchAgents: async () => {
@@ -69,7 +64,7 @@ export const useAgentStore = create<AgentState>()(
               status: 'published',
               model: rawModel,
               systemPrompt: item.PROMPT || '',
-              toolIds: item.TOOL_NAMES || [],
+              toolIds: item.SELECTED_TOOL_IDS || item.TOOL_NAMES || [],
               mcpServers: item.MCP_SERVERS || [],
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -94,11 +89,13 @@ export const useAgentStore = create<AgentState>()(
           
           // Map backend tools to frontend tools format
           const mappedTools: Tool[] = data.map((item: any) => ({
-            id: item.name,
+            id: item.id,
             name: item.name,
             description: item.description || `Tool: ${item.name}`,
             category: 'utility',
-            iconName: 'Wrench',
+            iconName: item.type === 'mcp' ? 'Server' : 'Wrench',
+            type: item.type,
+            mcp_server_id: item.mcp_server_id,
           }));
 
           set({ tools: mappedTools, isToolsLoading: false });
@@ -108,32 +105,22 @@ export const useAgentStore = create<AgentState>()(
         }
       },
 
-      fetchMcpServers: async () => {
-        set({ isMcpServersLoading: true, error: null });
-        try {
-          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-          const response = await fetch(`${baseUrl}/tools/mcp_servers`);
-          if (!response.ok) throw new Error('Failed to fetch MCP servers');
-          const data = await response.json();
-          
-          set({ mcpServers: data, isMcpServersLoading: false });
-        } catch (error: any) {
-          console.error('Error fetching MCP servers:', error);
-          set({ error: error.message, isMcpServersLoading: false });
-        }
-      },
+
 
       createAgent: async (agentData) => {
         set({ isLoading: true, error: null });
         try {
           const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
           
+          const selectedToolObjects = agentData.toolIds.map(id => get().tools.find(t => t.id === id)).filter(Boolean);
+          const computedMcpServers = Array.from(new Set(selectedToolObjects.filter(t => t?.type === 'mcp' && t.mcp_server_id).map(t => t?.mcp_server_id as string)));
+
           const payload = {
             name: agentData.name,
             prompt: agentData.systemPrompt,
             model: agentData.model,
             tools: agentData.toolIds,
-            mcp_servers: agentData.mcpServers || [],
+            mcp_servers: computedMcpServers,
           };
 
           const response = await fetch(`${baseUrl}/agents/`, {
@@ -181,11 +168,14 @@ export const useAgentStore = create<AgentState>()(
           
           if (agentData.name) {
             // Optional: update the backend if it's a full update
+            const selectedToolObjects = agentData.toolIds?.map(id => get().tools.find(t => t.id === id)).filter(Boolean) || [];
+            const computedMcpServers = Array.from(new Set(selectedToolObjects.filter(t => t?.type === 'mcp' && t.mcp_server_id).map(t => t?.mcp_server_id as string)));
+
             const payload = {
               prompt: agentData.systemPrompt || '',
               model: agentData.model || '',
               tools: agentData.toolIds || [],
-              mcp_servers: agentData.mcpServers || [],
+              mcp_servers: computedMcpServers,
             };
             
             await fetch(`${baseUrl}/agents/${id}`, {
@@ -295,14 +285,13 @@ export const useAgentStore = create<AgentState>()(
         set({
           agents: [],
           tools: [],
-          mcpServers: [],
         });
       },
     }),
     {
       name: 'agent-studio-agents-storage-v2',
       partialize: (state) => ({
-        // We only persist agents; tools and mcpServers should be fetched live
+        // We only persist agents; tools should be fetched live
         agents: state.agents,
       }),
     }

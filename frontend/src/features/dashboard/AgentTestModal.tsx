@@ -209,7 +209,6 @@ export const AgentTestModal: React.FC<AgentTestModalProps> = ({
                       <AgentStateDiagram 
                         agentName={agent.name} 
                         tools={agentTools} 
-                        mcpUrls={agent.mcpServers} 
                         isProcessing={isProcessing} 
                       />
                     </div>
@@ -227,18 +226,7 @@ export const AgentTestModal: React.FC<AgentTestModalProps> = ({
                            </div>
                          ) : <span className="text-[10px] text-zinc-400">None</span>}
                        </div>
-                       <div>
-                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-2">MCP Servers</span>
-                         {agent.mcpServers.length > 0 ? (
-                           <div className="flex flex-wrap gap-1.5">
-                             {agent.mcpServers.map(m => (
-                               <span key={m} className="px-2 py-1 rounded border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-900/10 text-[10px] text-emerald-700 dark:text-emerald-400 font-medium truncate max-w-[200px]">
-                                 {m}
-                               </span>
-                             ))}
-                           </div>
-                         ) : <span className="text-[10px] text-zinc-400">None</span>}
-                       </div>
+
                     </div>
                   </motion.div>
                 )}
