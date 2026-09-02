@@ -1,5 +1,6 @@
 # Python & Virtual Environment
 .venv/
+**/.venv/
 **/__pycache__/
 __pycache__/
 *.py[cod]
@@ -13,6 +14,13 @@ __pycache__/
 generated_agents/
 __pycache__/
 app/__pycache__/
+
+#MCP Server
+MCP_server/outputs/
+MCP_server/.venv
+MCP_server/test_client.py
+MCP_server/mcp_client.py
+
 # Node & Frontend
 frontend/node_modules/
 frontend/package-lock.json

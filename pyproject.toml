@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
-# Note: MCP_server/requirements.txt packages (fastmcp, edge-tts, etc.) have been installed into this main project's virtual environment.
+
 dependencies = [
     "agent-evaluator",
     "alembic>=1.18.5",
