@@ -1,11 +1,10 @@
 fastmcp
+mcp
 markdown2
 xhtml2pdf
 google-genai
 python-dotenv
-
-httpx  # mcp-client
+httpx
 uvicorn 
 starlette
-
 edge-tts

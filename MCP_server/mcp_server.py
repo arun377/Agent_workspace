@@ -5,6 +5,36 @@ import edge_tts   #text-to-speech library
 from xhtml2pdf import pisa  #pdf generation library
 from fastmcp import FastMCP
 import httpx
+import threading
+import http.server
+import socketserver
+
+# Set up output directory and HTTP server
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+HTTP_PORT = 8082
+
+def start_http_server():
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=OUTPUT_DIR, **kwargs)
+    
+    # We use SO_REUSEADDR so the port is freed immediately if the server restarts
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("0.0.0.0", HTTP_PORT), Handler) as httpd:
+        print(f"Serving outputs at http://0.0.0.0:{HTTP_PORT}")
+        httpd.serve_forever()
+
+# Start the file server in a background thread
+threading.Thread(target=start_http_server, daemon=True).start()
+
+# Helper for resolving output files securely
+def get_output_file_info(filename: str):
+    """Sanitizes filename and returns absolute local path and public URL."""
+    safe_filename = os.path.basename(filename)
+    local_path = os.path.join(OUTPUT_DIR, safe_filename)
+    public_url = f"http://127.0.0.1:{HTTP_PORT}/{safe_filename}"
+    return safe_filename, local_path, public_url
 
 # Initialize the MCP Server (Renamed to reflect it will hold multiple tools)
 mcp = FastMCP("NetworkMCPServer")
@@ -90,7 +120,7 @@ def generate_pdf_report(md_content: str, title: str = "", output_filename: str =
     if not output_filename.endswith('.pdf'):
         output_filename += ".pdf"
         
-    file_path = os.path.abspath(output_filename)
+    safe_filename, file_path, public_url = get_output_file_info(output_filename)
 
     with open(file_path, "wb") as f:
         pisa_status = pisa.CreatePDF(html_template, dest=f)
@@ -98,7 +128,7 @@ def generate_pdf_report(md_content: str, title: str = "", output_filename: str =
     if pisa_status.err:
         raise Exception(f"Error during PDF generation: {pisa_status.err}")
 
-    return f"Success! The PDF has been saved locally at: {file_path}"
+    return f"Success! You can download the PDF here: {public_url}"
 
 
 def clean_text_for_speech(text: str) -> str:
@@ -144,7 +174,7 @@ async def generate_tts_audio(
     if not output_filename.endswith('.mp3'):
         output_filename += ".mp3"
         
-    file_path = os.path.abspath(output_filename)
+    safe_filename, file_path, public_url = get_output_file_info(output_filename)
     
     # Strip markdown artifacts so the voice reads cleanly
     clean_text = clean_text_for_speech(text)
@@ -156,7 +186,7 @@ async def generate_tts_audio(
     communicate = edge_tts.Communicate(clean_text, voice)
     await communicate.save(file_path)
     
-    return f"Success! The audio file has been saved locally at: {file_path}"
+    return f"Success! You can download your audio file here: {public_url}"
 
 # ==========================================
 # TOOL 3: Website Scraper (via Firecrawl)
