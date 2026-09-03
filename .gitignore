@@ -21,6 +21,9 @@ MCP_server/.venv
 MCP_server/test_client.py
 MCP_server/mcp_client.py
 
+#Exported Agents
+exported_agents/
+
 # Node & Frontend
 frontend/node_modules/
 frontend/package-lock.json
