@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Bot, Lock, User, ArrowRight, CheckCircle2, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -10,10 +10,14 @@ export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const { login } = useAuthStore();
+  const { login, isAuthenticated } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const { showToast } = useToast();
   const navigate = useNavigate();
+
+  if (isAuthenticated) {
+    return <Navigate to="/agents" replace />;
+  }
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();

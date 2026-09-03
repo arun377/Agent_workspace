@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface User {
   username: string;
@@ -16,9 +16,11 @@ interface AuthState {
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>()((set) => ({
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
       user: null,
-      isAuthenticated: false, // User must log in first
+      isAuthenticated: false,
 
       login: (username, password) => {
         if (username.trim().toLowerCase() === 'admin' && password === 'admin') {
@@ -38,4 +40,14 @@ export const useAuthStore = create<AuthState>()((set) => ({
       logout: () => {
         set({ user: null, isAuthenticated: false });
       },
-}));
+    }),
+    {
+      name: 'agent-studio-auth-session',
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
+);
