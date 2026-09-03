@@ -11,7 +11,8 @@ from evaluator.generator import generate_goldens
 # Import the judge/generator model wrapper used across the evaluator
 from app.services.metric_registry import get_default_judge_model # or your GeminiModel instance
 from app.schemas.eval import EvalDataGenerateRequest, EvalDataGenerateResponse, EvalDataItem, EvalDataUpdateRequest
-
+from fastapi.responses import FileResponse
+from app.services.agent_exporter import create_export_bundle, package_as_zip
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -179,3 +180,32 @@ def update_eval_case(name: str, index: int, request: EvalDataUpdateRequest):
     eval_file.write_text(json.dumps(raw_data, indent=2))
 
     return EvalDataItem(index=index, **current)
+
+
+
+
+
+@router.post("/{name}/export")
+def export_agent(name: str, download: bool = False):
+    try:
+        bundle_dir = create_export_bundle(agent_name=name)
+        zip_path = package_as_zip(bundle_dir)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+    if download:
+        return FileResponse(
+            path=str(zip_path),
+            filename=f"{name}_bundle.zip",
+            media_type="application/zip"
+        )
+
+    return {
+        "status": "success",
+        "agent_name": name,
+        "bundle_path": str(bundle_dir.resolve()),
+        "zip_path": str(zip_path.resolve()),
+        "docker_build_command": f"docker build -t {name}:latest {bundle_dir}"
+    }
