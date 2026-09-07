@@ -1,20 +1,19 @@
-# app/templates/agent_template.py.jinja
 import asyncio
+import sys
+import json
+from pathlib import Path
 from langchain_litellm import ChatLiteLLM
 from langgraph.prebuilt import create_react_agent
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from app.tools.builtin.builtin import BUILTIN_TOOLS
 from app.tools.mcp_servers import MCP_SERVERS
-import sys
-import json
 
 AGENT_NAME = "{{ agent_name }}"
-PROMPT = "{{ prompt }}"
+PROMPT = """{{ prompt }}"""
 MODEL_STRING = "{{ model }}"
 SELECTED_TOOL_IDS = {{ tools }}
 
 model = ChatLiteLLM(model=MODEL_STRING)
-
 
 async def build_tools():
     tools = []
@@ -28,50 +27,88 @@ async def build_tools():
             mcp_ids_by_server.setdefault(server_id, []).append(tool_name)
 
     for server_id, tool_names in mcp_ids_by_server.items():
-        print(f"CONNECTING TO MCP SERVER: {server_id}", file=sys.stderr)
-        
         client = MultiServerMCPClient({server_id: MCP_SERVERS[server_id]})
         server_tools = await client.get_tools()
         for t in server_tools:
             if t.name in tool_names:
                 tools.append(t)
-        print(f"MCP TOOLS FETCHED: {[t.name for t in server_tools]}", file=sys.stderr)
-
     return tools
 
+def emit_event(event_type: str, summary: str, data: dict = None):
+    payload = {
+        "type": event_type,
+        "summary": summary,
+        "data": data or {}
+    }
+    # Output solely as line-delimited JSON to stdout
+    print(json.dumps(payload), flush=True)
 
-async def run(input_text: str, session_id: str = "default_session") -> dict:
+async def run(payload: dict):
+    input_text = payload.get("input_text", "")
+    session_id = payload.get("session_id", "default_session")
+
+    emit_event("status", f"Starting run for session {session_id}...")
     tools = await build_tools()
     agent = create_react_agent(model=model, tools=tools, prompt=PROMPT)
-    result = await agent.ainvoke({"messages": [{"role": "user", "content": input_text}]})
 
-    final_answer = result["messages"][-1].content
+    full_answer_chunks = []
+    final_fallback_answer = ""
 
-    tool_calls = []
-    tool_contexts = []
+    input_payload = {"messages": [{"role": "user", "content": input_text}]}
 
-    for msg in result["messages"]:
-        # 1. Extract tool invocations
-        if hasattr(msg, "tool_calls") and msg.tool_calls:
-            for tc in msg.tool_calls:
-                tool_calls.append({"name": tc["name"], "args": tc["args"]})
-        
-        # 2. Extract tool returns (grounding context for HallucinationMetric)
-        if hasattr(msg, "type") and msg.type == "tool":
-            tool_contexts.append(str(msg.content))
+    async for event in agent.astream_events(input_payload, version="v2"):
+        kind = event["event"]
 
-    return {
-        "answer": final_answer,
-        "tool_calls": tool_calls,
-        "context": tool_contexts,
+        # 1. Tool Invocations
+        if kind == "on_tool_start":
+            emit_event("tool_call", f"Calling `{event['name']}`", {
+                "tool": event["name"],
+                "input": event["data"].get("input")
+            })
+
+        # 2. Tool Results
+        elif kind == "on_tool_end":
+            emit_event("tool_result", f"Finished `{event['name']}`", {
+                "tool": event["name"],
+                "output": str(event["data"].get("output"))
+            })
+
+        # 3. Token Streaming (Defensive text extraction)
+        elif kind == "on_chat_model_stream":
+            chunk = event["data"].get("chunk")
+            content = getattr(chunk, "content", "")
+            
+            # Content can be a string or a list of blocks
+            text_piece = ""
+            if isinstance(content, str):
+                text_piece = content
+            elif isinstance(content, list):
+                text_piece = "".join([c.get("text", "") if isinstance(c, dict) else str(c) for c in content])
+
+            if text_piece:
+                full_answer_chunks.append(text_piece)
+                emit_event("token", "Generating response...", {"token": text_piece})
+
+        # 4. Fallback: Capture final output from chain completion
+        elif kind == "on_chain_end" and event["name"] == "LangGraph":
+            output = event["data"].get("output")
+            if isinstance(output, dict) and "messages" in output:
+                last_msg = output["messages"][-1]
+                final_fallback_answer = getattr(last_msg, "content", "")
+
+    # Consolidate answer
+    assembled_answer = "".join(full_answer_chunks).strip()
+    final_output = assembled_answer if assembled_answer else final_fallback_answer
+
+    emit_event("completed", "Execution finished.", {
+        "final_answer": final_output,
         "session_id": session_id
-    }
-
+    })
 
 if __name__ == "__main__":
-    input_text = sys.stdin.read()
+    raw_input = sys.stdin.read()
     try:
-        result = asyncio.run(run(input_text))
-        print(json.dumps({"status": "success", "result": result}))
+        data = json.loads(raw_input) if raw_input.strip().startswith("{") else {"input_text": raw_input}
+        asyncio.run(run(data))
     except Exception as e:
-        print(json.dumps({"status": "error", "result": str(e)}))
+        emit_event("error", f"Subprocess encountered an exception: {str(e)}")

@@ -11,8 +11,12 @@ from evaluator.generator import generate_goldens
 # Import the judge/generator model wrapper used across the evaluator
 from app.services.metric_registry import get_default_judge_model # or your GeminiModel instance
 from app.schemas.eval import EvalDataGenerateRequest, EvalDataGenerateResponse, EvalDataItem, EvalDataUpdateRequest
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from app.services.agent_exporter import create_export_bundle, package_as_zip
+
+from pydantic import BaseModel,Field
+from app.services.agent_streamer import stream_agent_subprocess
+
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -56,20 +60,20 @@ def update_agent(name: str, request: AgentUpdateRequest):
     )
     return AgentCreateResponse(name=name, file_path=file_path)
 
-@router.post("/{name}/run", response_model=AgentRunResponse)
-def test_agent(name: str, request: AgentRunRequest):
-    try:
-        result = run_agent(name=name, input_text=request.input_text)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Agent execution timed out")
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @router.post("/{name}/run", response_model=AgentRunResponse)
+# def test_agent(name: str, request: AgentRunRequest):
+#     try:
+#         result = run_agent(name=name, input_text=request.input_text)
+#     except FileNotFoundError as e:
+#         raise HTTPException(status_code=404, detail=str(e))
+#     except subprocess.TimeoutExpired:
+#         raise HTTPException(status_code=504, detail="Agent execution timed out")
+#     except RuntimeError as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
-    output = result["result"]
-    answer_text = output["answer"] if isinstance(output, dict) else output
-    return AgentRunResponse(status=result["status"], result=answer_text)
+#     output = result["result"]
+#     answer_text = output["answer"] if isinstance(output, dict) else output
+#     return AgentRunResponse(status=result["status"], result=answer_text)
 
 
 
@@ -215,3 +219,25 @@ def export_agent(name: str, download: bool = False):
         "zip_path": str(zip_path.resolve()),
         "docker_build_command": f"docker build -t {name}:latest {bundle_dir}"
     }
+
+
+
+
+# router = APIRouter(prefix="/agents", tags=["agents"])
+
+class AgentRunRequest(BaseModel):
+    input_text: str
+    session_id: str | None = Field(default="default_session")
+
+@router.post("/{name}/run")
+async def run_agent_endpoint(name: str, req: AgentRunRequest):
+    """Single endpoint: runs the agent while streaming live trace & tokens."""
+    return StreamingResponse(
+        stream_agent_subprocess(name, req.input_text, req.session_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
