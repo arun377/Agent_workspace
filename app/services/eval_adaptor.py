@@ -1,3 +1,4 @@
+# app/services/eval_adaptor.py
 from app.services.agent_runner import run_agent
 
 
@@ -15,13 +16,16 @@ def make_agent_fn(agent_name: str):
         if isinstance(agent_result, dict):
             output_text = agent_result.get("answer", str(agent_result))
             execution_trace = agent_result.get("tool_calls", [])
+            context = agent_result.get("context", [])
         else:
             output_text = str(agent_result)
             execution_trace = []
+            context = []
 
         return {
             "output": output_text,
             "execution_trace": execution_trace,
+            "context": context,  # Now guaranteed to be defined as a list
         }
 
     return agent_fn

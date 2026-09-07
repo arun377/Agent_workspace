@@ -1,7 +1,7 @@
 import os
 from litellm import completion, acompletion
 from deepeval.models.base_model import DeepEvalBaseLLM
-from deepeval.metrics import TaskCompletionMetric, GEval
+from deepeval.metrics import TaskCompletionMetric, GEval , ToolCorrectnessMetric, HallucinationMetric
 from deepeval.test_case import LLMTestCaseParams
 
 
@@ -46,15 +46,26 @@ def build_deterministic_metrics(metric_names: list[str], judge_model) -> list:
             ],
             threshold=0.3,
             model=judge_model,
-        )
+        ),
+        "tool_correctness": lambda: ToolCorrectnessMetric(
+            threshold=0.7,
+            model=judge_model
+        ),
     }
     return [available[name]() for name in metric_names if name in available]
 
 
 def build_non_deterministic_metrics(metric_names: list[str], judge_model) -> list:
     available = {
-        "task_completion": lambda: TaskCompletionMetric(
-            threshold=0.7, model=judge_model
-        )
+        "task_completion": lambda: TaskCompletionMetric(threshold=0.7, model=judge_model) ,
+        
+        "hallucination": lambda: HallucinationMetric(threshold=0.5, model=judge_model),
+        
     }
-    return [available[name]() for name in metric_names if name in available]
+    metrics = []
+    for name in metric_names:
+        if name in available:
+            metrics.append(available[name]())
+        else:
+            raise ValueError(f"Unknown non-deterministic metric: {name}")
+    return metrics

@@ -7,8 +7,8 @@ MCP_SERVERS = {
         "url": "https://mcp.firecrawl.dev/v2/mcp",
         "transport": "streamable_http",
     },
-    "NetworkMCPServer": {
-        "url": "http://127.0.0.1:8081/sse",
-        "transport": "sse"
-    }
+    # "NetworkMCPServer": {
+    #     "url": "http://127.0.0.1:8081/sse",
+    #     "transport": "sse"
+    # }
 }

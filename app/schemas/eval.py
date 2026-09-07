@@ -6,12 +6,14 @@ class EvalDataItem(BaseModel):
     index: int
     input: str
     expected_output: str
+    expected_tools: list[str] = Field(default_factory=list)
     source: Literal["llm", "human"]
     reviewed: bool
 
 class EvalDataUpdateRequest(BaseModel):
     input: Optional[str] = None
     expected_output: Optional[str] = None
+    expected_tools: Optional[list[str]] = None
     reviewed: Optional[bool] = None
     model_config = {"extra": "forbid"}
 

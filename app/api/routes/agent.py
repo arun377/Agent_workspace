@@ -86,6 +86,7 @@ def eval_generator(name: str, request: EvalDataGenerateRequest):
     try:
         config_data = json.loads(config_file.read_text())
         agent_prompt = config_data["prompt"]
+        available_tools = config_data.get("tools", [])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load agent config: {str(e)}")
 
@@ -94,6 +95,7 @@ def eval_generator(name: str, request: EvalDataGenerateRequest):
         model = get_default_judge_model()  # Your GeminiModel / generator instance
         raw_goldens = generate_goldens(
             agent_prompt=agent_prompt,
+            available_tools=available_tools,
             num_cases=request.num_cases,
             model=model
         )
@@ -105,6 +107,7 @@ def eval_generator(name: str, request: EvalDataGenerateRequest):
         {
             "input": case["input"],
             "expected_output": case["expected_output"],
+            "expected_tools": case.get("expected_tools", []),
             "source": "llm",
             "reviewed": False
         }
@@ -143,6 +146,7 @@ def get_eval_data(name: str):
                 index=idx,
                 input=item if isinstance(item, str) else item.get("input", ""),
                 expected_output="" if isinstance(item, str) else item.get("expected_output", ""),
+                expected_tools=[] if isinstance(item, str) else item.get("expected_tools", []),
                 source="human" if isinstance(item, str) else item.get("source", "human"),
                 reviewed=True if isinstance(item, str) else item.get("reviewed", False),
             )
@@ -173,6 +177,8 @@ def update_eval_case(name: str, index: int, request: EvalDataUpdateRequest):
         current["input"] = request.input
     if request.expected_output is not None:
         current["expected_output"] = request.expected_output
+    if request.expected_tools is not None:
+        current["expected_tools"] = request.expected_tools
     if request.reviewed is not None:
         current["reviewed"] = request.reviewed
 
