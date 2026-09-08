@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { Agent, Tool, CustomToolFormData, AgentStatus, AIModel } from '../types/agent';
+import { Agent, Tool, AgentStatus, AIModel, AgentStreamEvent, AgentRunOptions } from '../types/agent';
 
 interface AgentState {
   agents: Agent[];
@@ -11,14 +11,12 @@ interface AgentState {
   // Actions
   fetchAgents: () => Promise<void>;
   fetchTools: () => Promise<void>;
-  runAgent: (name: string, inputText: string) => Promise<any>;
+  runAgent: (name: string, inputText: string, options?: AgentRunOptions) => Promise<{ result: string; events: AgentStreamEvent[] }>;
   createAgent: (agent: Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Agent>;
-  updateAgent: (id: string, agent: Partial<Omit<Agent, 'id' | 'createdAt'>>) => void;
+  updateAgent: (id: string, agent: Partial<Omit<Agent, 'id' | 'createdAt'>>) => Promise<Agent>;
   duplicateAgent: (id: string) => Agent | null;
   deleteAgent: (id: string) => void;
   toggleAgentStatus: (id: string) => void;
-  createCustomTool: (data: CustomToolFormData) => Tool;
-  resetToDefaults: () => void;
 }
 
 const AVATAR_GRADIENTS = [
@@ -46,7 +44,8 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
           const data = await response.json();
           
           const mappedAgents: Agent[] = data.map((item: any) => {
-            let rawModel = item.MODEL_STRING || 'gemini/gemini-2.5-pro';
+            const agentName = item.name || item.AGENT_NAME || 'Unknown';
+            let rawModel = item.model || item.MODEL_STRING || 'gemini/gemini-2.5-pro';
             // Auto-migrate legacy agents missing the provider prefix
             if (!rawModel.includes('/')) {
               if (rawModel.startsWith('gpt')) rawModel = `openai/${rawModel}`;
@@ -55,15 +54,15 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
             }
 
             return {
-              id: item.AGENT_NAME,
-              name: item.AGENT_NAME,
-              description: '',
-              category: 'Custom',
-              status: 'published',
+              id: agentName,
+              name: agentName,
+              description: item.description || '',
+              category: item.category || 'Custom',
+              status: item.status || 'published',
               model: rawModel,
-              systemPrompt: item.PROMPT || '',
-              toolIds: item.SELECTED_TOOL_IDS || item.TOOL_NAMES || [],
-              mcpServers: item.MCP_SERVERS || [],
+              systemPrompt: item.prompt || item.PROMPT || '',
+              toolIds: item.tools || item.SELECTED_TOOL_IDS || item.TOOL_NAMES || [],
+              mcpServers: item.mcp_servers || item.MCP_SERVERS || [],
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
               avatarColor: AVATAR_GRADIENTS[Math.floor(Math.random() * AVATAR_GRADIENTS.length)],
@@ -110,15 +109,11 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
         try {
           const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
           
-          const selectedToolObjects = agentData.toolIds.map(id => get().tools.find(t => t.id === id)).filter(Boolean);
-          const computedMcpServers = Array.from(new Set(selectedToolObjects.filter(t => t?.type === 'mcp' && t.mcp_server_id).map(t => t?.mcp_server_id as string)));
-
           const payload = {
             name: agentData.name,
             prompt: agentData.systemPrompt,
             model: agentData.model,
             tools: agentData.toolIds,
-            mcp_servers: computedMcpServers,
           };
 
           const response = await fetch(`${baseUrl}/agents/`, {
@@ -159,62 +154,194 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
       },
 
       updateAgent: async (id, agentData) => {
+        set({ isLoading: true, error: null });
         const now = new Date().toISOString();
-        
+
         try {
           const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-          
-          if (agentData.name) {
-            // Optional: update the backend if it's a full update
-            const selectedToolObjects = agentData.toolIds?.map(id => get().tools.find(t => t.id === id)).filter(Boolean) || [];
-            const computedMcpServers = Array.from(new Set(selectedToolObjects.filter(t => t?.type === 'mcp' && t.mcp_server_id).map(t => t?.mcp_server_id as string)));
 
-            const payload = {
-              prompt: agentData.systemPrompt || '',
-              model: agentData.model || '',
-              tools: agentData.toolIds || [],
-              mcp_servers: computedMcpServers,
-            };
-            
-            await fetch(`${baseUrl}/agents/${id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-            });
+          const payload: Record<string, any> = {};
+          if (agentData.name !== undefined) payload.name = agentData.name;
+          if (agentData.systemPrompt !== undefined) payload.prompt = agentData.systemPrompt;
+          if (agentData.model !== undefined) payload.model = agentData.model;
+          if (agentData.toolIds !== undefined) payload.tools = agentData.toolIds;
+
+          const response = await fetch(`${baseUrl}/agents/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            let errorMsg = 'Failed to update agent';
+            try {
+              const errData = await response.json();
+              if (errData.detail) errorMsg = errData.detail;
+            } catch {}
+            throw new Error(errorMsg);
           }
-        } catch (error) {
-          console.error('Error updating agent on backend:', error);
-        }
 
-        set((state) => ({
-          agents: state.agents.map((ag) =>
-            ag.id === id
-              ? {
+          const responseData = await response.json();
+          const targetName = responseData.name || agentData.name || id;
+
+          let updatedAgent: Agent | null = null;
+
+          set((state) => {
+            const updatedAgents = state.agents.map((ag) => {
+              if (ag.id === id) {
+                updatedAgent = {
                   ...ag,
                   ...agentData,
+                  id: targetName,
+                  name: targetName,
+                  model: responseData.model || agentData.model || ag.model,
+                  systemPrompt: responseData.prompt !== undefined ? responseData.prompt : (agentData.systemPrompt ?? ag.systemPrompt),
+                  toolIds: responseData.tools || agentData.toolIds || ag.toolIds,
                   updatedAt: now,
-                }
-              : ag
-          ),
-        }));
+                };
+                return updatedAgent;
+              }
+              return ag;
+            });
+
+            if (!updatedAgent) {
+              const randomGradient = AVATAR_GRADIENTS[Math.floor(Math.random() * AVATAR_GRADIENTS.length)];
+              updatedAgent = {
+                id: targetName,
+                name: targetName,
+                description: agentData.description || '',
+                category: agentData.category || 'Custom',
+                status: agentData.status || 'published',
+                model: responseData.model || agentData.model || 'gemini/gemini-2.5-pro',
+                systemPrompt: responseData.prompt || agentData.systemPrompt || '',
+                toolIds: responseData.tools || agentData.toolIds || [],
+                mcpServers: agentData.mcpServers || [],
+                createdAt: now,
+                updatedAt: now,
+                avatarColor: agentData.avatarColor || randomGradient,
+              };
+              return {
+                agents: [updatedAgent, ...state.agents.filter(a => a.id !== id)],
+                isLoading: false,
+              };
+            }
+
+            return { agents: updatedAgents, isLoading: false };
+          });
+
+          return updatedAgent!;
+        } catch (error: any) {
+          console.error('Error updating agent:', error);
+          set({ error: error.message, isLoading: false });
+          throw error;
+        }
       },
 
-      runAgent: async (name: string, inputText: string) => {
+      runAgent: async (name: string, inputText: string, options?: AgentRunOptions) => {
         const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
         const response = await fetch(`${baseUrl}/agents/${encodeURIComponent(name)}/run`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ name: name, input_text: inputText }),
+          body: JSON.stringify({
+            input_text: inputText,
+            session_id: options?.sessionId || 'default_session',
+          }),
+          signal: options?.signal,
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || 'Failed to run agent');
+          let errorMessage = 'Failed to run agent';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.detail || errorMessage;
+          } catch {
+            errorMessage = `Request failed with status ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
         }
-        
-        return response.json();
+
+        if (!response.body) {
+          throw new Error('ReadableStream not supported or empty response body');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let accumulatedTokens = '';
+        let finalAnswer = '';
+        let streamError: string | null = null;
+        const events: AgentStreamEvent[] = [];
+
+        const handleSseLine = (line: string) => {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(':')) return;
+
+          if (trimmed.startsWith('data:')) {
+            const jsonStr = trimmed.replace(/^data:\s*/, '');
+            if (!jsonStr) return;
+
+            try {
+              const event: AgentStreamEvent = JSON.parse(jsonStr);
+              events.push(event);
+              options?.onEvent?.(event);
+
+              if (event.type === 'token') {
+                const token = event.data?.token || '';
+                accumulatedTokens += token;
+              } else if (event.type === 'completed') {
+                if (event.data?.final_answer !== undefined) {
+                  finalAnswer = event.data.final_answer;
+                }
+              } else if (event.type === 'error') {
+                streamError = event.summary || event.data?.stderr || 'Error during agent execution';
+              } else if (event.status === 'success' && event.result) {
+                const text = typeof event.result === 'string' ? event.result : event.result.answer;
+                if (text) finalAnswer = text;
+              } else if (event.status === 'error') {
+                streamError = event.result || 'Agent execution failed';
+              }
+            } catch (err) {
+              console.warn('Could not parse SSE JSON payload:', trimmed, err);
+            }
+          }
+        };
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              handleSseLine(line);
+            }
+          }
+
+          if (buffer.trim()) {
+            buffer += decoder.decode();
+            const lines = buffer.split('\n');
+            for (const line of lines) {
+              handleSseLine(line);
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+
+        if (streamError) {
+          throw new Error(streamError);
+        }
+
+        const result = finalAnswer || accumulatedTokens;
+        return {
+          result,
+          events,
+        };
       },
 
       duplicateAgent: (id) => {
@@ -227,7 +354,7 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
           ...target,
           id: newId,
           name: `${target.name} (Copy)`,
-          status: 'draft',
+          status: 'published',
           createdAt: now,
           updatedAt: now,
         };
@@ -246,43 +373,6 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
       },
 
       toggleAgentStatus: (id) => {
-        const now = new Date().toISOString();
-        set((state) => ({
-          agents: state.agents.map((ag) => {
-            if (ag.id === id) {
-              const newStatus: AgentStatus = ag.status === 'published' ? 'draft' : 'published';
-              return { ...ag, status: newStatus, updatedAt: now };
-            }
-            return ag;
-          }),
-        }));
-      },
-
-      createCustomTool: (data) => {
-        const newToolId = `tool-custom-${Date.now()}`;
-        const newTool: Tool = {
-          id: newToolId,
-          name: data.name,
-          description: data.description,
-          category: data.category || 'custom',
-          iconName: 'Wrench',
-          isCustom: true,
-          endpointUrl: data.endpointUrl,
-          httpMethod: data.httpMethod,
-          schema: data.schema,
-        };
-
-        set((state) => ({
-          tools: [...state.tools, newTool],
-        }));
-
-        return newTool;
-      },
-
-      resetToDefaults: () => {
-        set({
-          agents: [],
-          tools: [],
-        });
+        // All agents remain published
       },
 }));

@@ -1,4 +1,4 @@
-export type AgentStatus = 'draft' | 'published';
+export type AgentStatus = 'published';
 
 export type AIModel = string;
 
@@ -36,21 +36,26 @@ export interface Agent {
   avatarColor?: string; // Gradient accent class
 }
 
-export interface CustomToolFormData {
-  name: string;
-  description: string;
-  category: ToolCategory;
-  endpointUrl: string;
-  httpMethod: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  schema: string;
+export interface AgentStreamEvent {
+  type: 'status' | 'tool_call' | 'tool_result' | 'token' | 'completed' | 'error' | string;
+  summary?: string;
+  data?: {
+    tool?: string;
+    input?: any;
+    output?: any;
+    token?: string;
+    final_answer?: string;
+    session_id?: string;
+    stderr?: string;
+    [key: string]: any;
+  };
+  result?: any;
+  status?: string;
+  [key: string]: any;
 }
 
-export interface TestExecutionStep {
-  id: string;
-  type: 'prompt_prep' | 'tool_invocation' | 'tool_response' | 'llm_thinking' | 'final_output';
-  title: string;
-  details: string;
-  timestamp: string;
-  status: 'pending' | 'running' | 'success' | 'error';
-  executionTimeMs?: number;
+export interface AgentRunOptions {
+  sessionId?: string;
+  onEvent?: (event: AgentStreamEvent) => void;
+  signal?: AbortSignal;
 }

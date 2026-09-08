@@ -6,6 +6,7 @@ import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './features/auth/LoginPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { AgentBuilderPage } from './features/builder/AgentBuilderPage';
+import { AgentRunPage } from './features/run/AgentRunPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
@@ -47,6 +48,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AgentBuilderPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agents/run/:id"
+            element={
+              <ProtectedRoute>
+                <AgentRunPage />
               </ProtectedRoute>
             }
           />

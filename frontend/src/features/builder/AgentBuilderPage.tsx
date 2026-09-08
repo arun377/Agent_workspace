@@ -14,8 +14,8 @@ import {
   Wrench,
   Search,
   ChevronDown,
-  Info,
-  X
+  X,
+  Info
 } from 'lucide-react';
 import { useAgentStore } from '../../store/useAgentStore';
 import { AgentStatus } from '../../types/agent';
@@ -48,15 +48,20 @@ function useOutsideAlerter(ref: React.RefObject<HTMLDivElement | null>, onClickO
 export const AgentBuilderPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
-  const { agents, createAgent, updateAgent, tools, fetchTools } = useAgentStore();
+  const { agents, createAgent, updateAgent, tools, fetchTools, fetchAgents } = useAgentStore();
   const { showToast } = useToast();
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const isEditing = Boolean(id);
   const existingAgent = isEditing ? agents.find((a) => a.id === id) : null;
 
   useEffect(() => {
     fetchTools();
-  }, [fetchTools]);
+    if (isEditing && agents.length === 0) {
+      fetchAgents();
+    }
+  }, [fetchTools, fetchAgents, isEditing, agents.length]);
 
   const form = useForm<AgentBuilderFormData>({
     resolver: zodResolver(agentFormSchema),
@@ -85,8 +90,17 @@ export const AgentBuilderPage: React.FC = () => {
   const [isModelOpen, setIsModelOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   
-  // Global Tooltip State tracking cursor X position
-  const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
+  interface TooltipState {
+    title?: string;
+    text: string;
+    badge?: string;
+    x: number;
+    y: number;
+    placement: 'right' | 'left' | 'top' | 'bottom';
+  }
+
+  // Global Tooltip State positioned next to Info icons
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   const providerRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
@@ -118,7 +132,7 @@ export const AgentBuilderPage: React.FC = () => {
     }
   }, [existingAgent, form]);
 
-  const onSave = async (statusToSave: AgentStatus) => {
+  const onSave = async (statusToSave: AgentStatus = 'published') => {
     const values = form.getValues();
     const result = agentFormSchema.safeParse(values);
     if (!result.success) {
@@ -127,9 +141,10 @@ export const AgentBuilderPage: React.FC = () => {
       return;
     }
 
+    setIsSaving(true);
     try {
       if (isEditing && existingAgent) {
-        updateAgent(existingAgent.id, {
+        await updateAgent(existingAgent.id, {
           ...values,
           description: values.description || '',
           category: values.category || 'Custom',
@@ -146,8 +161,10 @@ export const AgentBuilderPage: React.FC = () => {
         showToast('Success', `${values.name} created successfully`, 'success');
       }
       navigate('/agents');
-    } catch (err) {
-      showToast('Error', 'Failed to save the agent. Please try again.', 'error');
+    } catch (err: any) {
+      showToast('Error', err.message || 'Failed to save the agent. Please try again.', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -160,10 +177,54 @@ export const AgentBuilderPage: React.FC = () => {
   const filteredModels = availableModels.filter(m => m.name.toLowerCase().includes(modelSearch.toLowerCase()) || m.id.toLowerCase().includes(modelSearch.toLowerCase()));
   const filteredTools = tools.filter(t => t.name.toLowerCase().includes(toolSearch.toLowerCase()) || t.description.toLowerCase().includes(toolSearch.toLowerCase()));
 
-  // Helper for mouse tracking tooltip
-  const handleMouseMove = (e: React.MouseEvent, text: string) => {
+  // Helper for intelligent side-positioned tooltip on Info icon hover
+  const handleInfoHover = (e: React.MouseEvent, text: string, title?: string, badge?: string) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setTooltip({ text, x: e.clientX, y: rect.top - 12 });
+    const tooltipWidth = 250;
+    const tooltipHeight = 70;
+    const margin = 10;
+
+    // Check if right side has enough space (preferred)
+    if (rect.right + tooltipWidth + margin <= window.innerWidth) {
+      setTooltip({
+        text,
+        title,
+        badge,
+        x: rect.right + margin,
+        y: Math.max(margin, Math.min(window.innerHeight - tooltipHeight - margin, rect.top + rect.height / 2 - tooltipHeight / 2)),
+        placement: 'right',
+      });
+    } else if (rect.left - tooltipWidth - margin >= 0) {
+      // Check if left side has enough space
+      setTooltip({
+        text,
+        title,
+        badge,
+        x: rect.left - tooltipWidth - margin,
+        y: Math.max(margin, Math.min(window.innerHeight - tooltipHeight - margin, rect.top + rect.height / 2 - tooltipHeight / 2)),
+        placement: 'left',
+      });
+    } else if (rect.top - tooltipHeight - margin >= 0) {
+      // Fallback: slightly up
+      setTooltip({
+        text,
+        title,
+        badge,
+        x: Math.max(margin, Math.min(window.innerWidth - tooltipWidth - margin, rect.left + rect.width / 2 - tooltipWidth / 2)),
+        y: rect.top - tooltipHeight - margin,
+        placement: 'top',
+      });
+    } else {
+      // Fallback: slightly down
+      setTooltip({
+        text,
+        title,
+        badge,
+        x: Math.max(margin, Math.min(window.innerWidth - tooltipWidth - margin, rect.left + rect.width / 2 - tooltipWidth / 2)),
+        y: rect.bottom + margin,
+        placement: 'bottom',
+      });
+    }
   };
   
   const handleMouseLeave = () => setTooltip(null);
@@ -193,19 +254,20 @@ export const AgentBuilderPage: React.FC = () => {
           <div className="flex items-center gap-2.5 shrink-0">
             <button
               type="button"
-              onClick={() => onSave('draft')}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <Save className="w-3.5 h-3.5 text-amber-500" />
-              <span>Save Draft</span>
-            </button>
-            <button
-              type="button"
+              disabled={isSaving}
               onClick={() => onSave('published')}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-100 dark:text-zinc-900 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-100 dark:text-zinc-900 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>Publish Agent</span>
+              {isSaving ? (
+                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {isSaving 
+                  ? (isEditing ? 'Saving...' : 'Creating...') 
+                  : (isEditing ? 'Save Changes' : 'Save Agent')}
+              </span>
             </button>
           </div>
         </div>
@@ -308,27 +370,42 @@ export const AgentBuilderPage: React.FC = () => {
                           </div>
                           <div className="max-h-[300px] overflow-y-auto p-1.5 flex flex-col gap-1 scrollbar-thin">
                             {filteredModels.length > 0 ? filteredModels.map(m => (
-                              <button
+                              <div
                                 key={m.id}
-                                type="button"
                                 onClick={() => {
                                   setValue('model', m.id);
                                   setIsModelOpen(false);
                                   setTooltip(null);
                                   setModelSearch('');
-                                  setTooltip(null);
                                 }}
-                                onMouseMove={(e) => handleMouseMove(e, m.description)}
-                                onMouseLeave={handleMouseLeave}
-                                className={`flex flex-col px-3 py-2.5 rounded-lg text-left transition-colors ${currentModel === m.id ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+                                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${currentModel === m.id ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
                               >
-                                <div className="flex items-center justify-between w-full pointer-events-none">
-                                  <span className={`text-xs font-bold ${currentModel === m.id ? 'text-zinc-900 dark:text-white' : 'text-zinc-700 dark:text-zinc-200'}`}>{m.name}</span>
-                                  <div className="flex items-center gap-1.5">
-                                    {m.badge && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200">{m.badge}</span>}
-                                  </div>
+                                <div className="flex items-center gap-2 truncate pr-2">
+                                  <span className={`text-xs font-bold truncate ${currentModel === m.id ? 'text-zinc-900 dark:text-white' : 'text-zinc-700 dark:text-zinc-200'}`}>
+                                    {m.name}
+                                  </span>
+                                  {m.badge && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 shrink-0">
+                                      {m.badge}
+                                    </span>
+                                  )}
                                 </div>
-                              </button>
+                                {m.description && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleInfoHover(e, m.description, m.name, m.badge);
+                                    }}
+                                    onMouseEnter={(e) => handleInfoHover(e, m.description, m.name, m.badge)}
+                                    onMouseOver={(e) => handleInfoHover(e, m.description, m.name, m.badge)}
+                                    onMouseLeave={handleMouseLeave}
+                                    className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 transition-colors shrink-0"
+                                  >
+                                    <Info className="w-3.5 h-3.5 pointer-events-none" />
+                                  </button>
+                                )}
+                              </div>
                             )) : (
                               <div className="p-3 text-center text-xs text-zinc-500">No models found.</div>
                             )}
@@ -416,23 +493,35 @@ export const AgentBuilderPage: React.FC = () => {
                             {filteredTools.length > 0 ? filteredTools.map(tool => {
                               const isSelected = selectedToolIds.includes(tool.id);
                               return (
-                                <button
+                                <div
                                   key={tool.id}
-                                  type="button"
                                   onClick={() => toggleTool(tool.id)}
-                                  onMouseMove={(e) => handleMouseMove(e, tool.description)}
-                                  onMouseLeave={handleMouseLeave}
-                                  className={`flex flex-col px-3 py-2.5 rounded-lg text-left transition-colors ${isSelected ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+                                  className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
                                 >
-                                  <div className="flex items-center justify-between w-full pointer-events-none">
-                                    <div className="flex items-center gap-2.5">
-                                      <div className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 border ${isSelected ? 'bg-zinc-900 border-zinc-900 text-white dark:bg-white dark:border-white dark:text-zinc-900' : 'border-zinc-300 dark:border-zinc-600'}`}>
-                                        {isSelected && <Check className="w-2.5 h-2.5" />}
-                                      </div>
-                                      <span className={`text-xs font-bold ${isSelected ? 'text-zinc-900 dark:text-white' : 'text-zinc-700 dark:text-zinc-200'}`}>{tool.name}</span>
+                                  <div className="flex items-center gap-2.5 truncate pr-2">
+                                    <div className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 border ${isSelected ? 'bg-zinc-900 border-zinc-900 text-white dark:bg-white dark:border-white dark:text-zinc-900' : 'border-zinc-300 dark:border-zinc-600'}`}>
+                                      {isSelected && <Check className="w-2.5 h-2.5" />}
                                     </div>
+                                    <span className={`text-xs font-bold truncate ${isSelected ? 'text-zinc-900 dark:text-white' : 'text-zinc-700 dark:text-zinc-200'}`}>
+                                      {tool.name}
+                                    </span>
                                   </div>
-                                </button>
+                                  {tool.description && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleInfoHover(e, tool.description, tool.name);
+                                      }}
+                                      onMouseEnter={(e) => handleInfoHover(e, tool.description, tool.name)}
+                                      onMouseOver={(e) => handleInfoHover(e, tool.description, tool.name)}
+                                      onMouseLeave={handleMouseLeave}
+                                      className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 transition-colors shrink-0"
+                                    >
+                                      <Info className="w-3.5 h-3.5 pointer-events-none" />
+                                    </button>
+                                  )}
+                                </div>
                               );
                             }) : (
                               <div className="p-3 text-center text-xs text-zinc-500">No tools found.</div>
@@ -451,25 +540,50 @@ export const AgentBuilderPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Global Tooltip fixed to screen */}
+      {/* Global Professional Tooltip positioned towards sides */}
       <AnimatePresence>
         {tooltip && (
           <motion.div 
-            initial={{ opacity: 0, y: 5, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.1 }}
+            transition={{ duration: 0.12 }}
             style={{ 
               position: 'fixed', 
               left: tooltip.x, 
               top: tooltip.y, 
-              transform: 'translate(-50%, -100%)' 
             }}
-            className="pointer-events-none z-[99999] px-3.5 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-bold leading-relaxed rounded-xl shadow-2xl w-max max-w-[240px] text-center"
+            className="pointer-events-none z-[99999] px-3.5 py-2.5 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl w-max max-w-[260px] text-left"
           >
-            {tooltip.text}
-            {/* Tooltip Arrow pointing down, centered exactly on mouse cursor */}
-            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-[6px] border-transparent border-t-zinc-900 dark:border-t-white" />
+            {tooltip.title && (
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-xs font-bold text-zinc-900 dark:text-white truncate">
+                  {tooltip.title}
+                </span>
+                {tooltip.badge && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shrink-0">
+                    {tooltip.badge}
+                  </span>
+                )}
+              </div>
+            )}
+            <p className="text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300 font-normal">
+              {tooltip.text}
+            </p>
+
+            {/* Subtle pointer notch depending on placement */}
+            {tooltip.placement === 'right' && (
+              <div className="absolute top-1/2 -left-[5px] -translate-y-1/2 w-2.5 h-2.5 bg-white dark:bg-zinc-900 border-l border-b border-zinc-200 dark:border-zinc-800 rotate-45" />
+            )}
+            {tooltip.placement === 'left' && (
+              <div className="absolute top-1/2 -right-[5px] -translate-y-1/2 w-2.5 h-2.5 bg-white dark:bg-zinc-900 border-r border-t border-zinc-200 dark:border-zinc-800 rotate-45" />
+            )}
+            {tooltip.placement === 'top' && (
+              <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-white dark:bg-zinc-900 border-r border-b border-zinc-200 dark:border-zinc-800 rotate-45" />
+            )}
+            {tooltip.placement === 'bottom' && (
+              <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-white dark:bg-zinc-900 border-l border-t border-zinc-200 dark:border-zinc-800 rotate-45" />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
