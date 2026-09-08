@@ -3,8 +3,14 @@ from pathlib import Path
 
 from fastapi import HTTPException
 from fastapi import APIRouter
-from app.schemas.agent import AgentCreateRequest, AgentCreateResponse, AgentRunRequest, AgentRunResponse, AgentUpdateRequest
-from app.services.agent_service import generate_agent
+from app.schemas.agent import (
+    AgentCreateRequest,
+    AgentCreateResponse,
+    AgentDetailResponse,
+    AgentRunRequest,
+    AgentUpdateRequest,
+)
+from app.services.agent_service import generate_agent, update_agent_service
 from app.services.agent_runner import run_agent
 import subprocess
 from evaluator.generator import generate_goldens
@@ -43,22 +49,23 @@ def create_agent(request:AgentCreateRequest):
     )
     return AgentCreateResponse(name=request.name, file_path=file_path)
 
-@router.put("/{name}", response_model=AgentCreateResponse)
+@router.put("/{name}", response_model=AgentDetailResponse)
 def update_agent(name: str, request: AgentUpdateRequest):
-    from app.services.agent_service import get_agent_details
     try:
-        get_agent_details(name)
+        updated = update_agent_service(
+            name=name,
+            prompt=request.prompt,
+            model=request.model,
+            tools=request.tools,
+            new_name=request.name
+        )
+        return updated
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-        
-    file_path = generate_agent(
-        name=name,
-        prompt=request.prompt,
-        model=request.model,
-        tools=request.tools,
-        mcp_servers=request.mcp_servers,
-    )
-    return AgentCreateResponse(name=name, file_path=file_path)
+    except FileExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # @router.post("/{name}/run", response_model=AgentRunResponse)
 # def test_agent(name: str, request: AgentRunRequest):
@@ -222,12 +229,6 @@ def export_agent(name: str, download: bool = False):
 
 
 
-
-# router = APIRouter(prefix="/agents", tags=["agents"])
-
-class AgentRunRequest(BaseModel):
-    input_text: str
-    session_id: str | None = Field(default="default_session")
 
 @router.post("/{name}/run")
 async def run_agent_endpoint(name: str, req: AgentRunRequest):
