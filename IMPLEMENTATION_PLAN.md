@@ -1,12 +1,58 @@
 # Agent Traceability Implementation Instructions for Future LLMs
 
-This workspace requires that all generated agents provide **full parallel traceability** of their execution. When generating or modifying an agent's code (typically `agent.py`), you must ensure that all LangGraph `astream_events` are properly caught and emitted as line-delimited JSON.
+This workspace requires that all generated agents provide **full parallel traceability** of their execution. When generating or modifying an agent's code, you must ensure that all LangGraph `astream_events` are properly caught and emitted as line-delimited JSON.
 
-## Required `astream_events` Handling
+## Modifying the Jinja Template
 
-When implementing the LangGraph execution loop (`async for event in agent.astream_events(..., version="v2"):`), you must include the following event handlers to capture the full trace. Do not omit any of these tracing blocks.
+To fully execute this traceability for upcoming created agents, the Jinja template file (`app/templates/agent_template.py.jinja`) must be modified. 
 
-### The Trace Event Loop
+### Original Jinja Snippet
+This is the original `astream_events` loop found in the Jinja template:
+
+```python
+    async for event in agent.astream_events(input_payload, version="v2"):
+        kind = event["event"]
+
+        # 1. Tool Invocations
+        if kind == "on_tool_start":
+            emit_event("tool_call", f"Calling `{event['name']}`", {
+                "tool": event["name"],
+                "input": event["data"].get("input")
+            })
+
+        # 2. Tool Results
+        elif kind == "on_tool_end":
+            emit_event("tool_result", f"Finished `{event['name']}`", {
+                "tool": event["name"],
+                "output": str(event["data"].get("output"))
+            })
+
+        # 3. Token Streaming (Defensive text extraction)
+        elif kind == "on_chat_model_stream":
+            chunk = event["data"].get("chunk")
+            content = getattr(chunk, "content", "")
+            
+            # Content can be a string or a list of blocks
+            text_piece = ""
+            if isinstance(content, str):
+                text_piece = content
+            elif isinstance(content, list):
+                text_piece = "".join([c.get("text", "") if isinstance(c, dict) else str(c) for c in content])
+
+            if text_piece:
+                full_answer_chunks.append(text_piece)
+                emit_event("token", "Generating response...", {"token": text_piece})
+
+        # 4. Fallback: Capture final output from chain completion
+        elif kind == "on_chain_end" and event["name"] == "LangGraph":
+            output = event["data"].get("output")
+            if isinstance(output, dict) and "messages" in output:
+                last_msg = output["messages"][-1]
+                final_fallback_answer = getattr(last_msg, "content", "")
+```
+
+### Modified Jinja Snippet
+You must replace the block above with the following **modified** Jinja loop. This ensures that tool errors, chain flows, and LLM payloads are fully traced, and that un-serializable `input` objects (like Langchain `HumanMessage` objects) are correctly wrapped in `str(...)`:
 
 ```python
     async for event in agent.astream_events(input_payload, version="v2"):
@@ -84,11 +130,11 @@ When implementing the LangGraph execution loop (`async for event in agent.astrea
 ```
 
 ## Summary of Traced Fields
-By using the loop above, the agent will reliably emit the following fields via `emit_event` (which internally does `print(json.dumps(...))`):
+By making this modification, any newly generated agents will reliably emit the following fields via `emit_event` (which internally does `print(json.dumps(...))`):
 - **`tool_call`**: Name and inputs to tools and MCP servers.
 - **`tool_result` / `tool_error`**: Output strings and exception traces from tool execution.
 - **`token`**: Raw stream tokens from the generation step.
 - **`llm_call_start` / `llm_call_end`**: Exact payload sent to the LLM and the exact response block.
 - **`chain_start` / `chain_end` / `chain_error`**: Top-level LangGraph agent chain execution steps, capturing the overall plan flow, failures, and retries.
 
-Please strictly enforce this template for all new agent implementations.
+Please strictly enforce this template block for all new agent implementations.
