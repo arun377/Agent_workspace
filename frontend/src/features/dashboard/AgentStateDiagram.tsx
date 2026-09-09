@@ -249,8 +249,8 @@ export const AgentStateDiagram: React.FC<AgentStateDiagramProps> = ({
           </motion.div>
 
           {/* Central Agent Label */}
-          <div className="mt-1.5 text-center max-w-[150px]">
-            <span className="text-[11px] font-black text-zinc-900 dark:text-white px-2.5 py-0.5 rounded-lg bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 shadow-md truncate block">
+          <div className="mt-1.5 text-center">
+            <span className="text-[11px] font-black text-zinc-900 dark:text-white px-2.5 py-0.5 rounded-lg bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 shadow-md block whitespace-normal break-words">
               {agentName}
             </span>
           </div>
@@ -327,9 +327,9 @@ export const AgentStateDiagram: React.FC<AgentStateDiagramProps> = ({
                 </div>
 
                 {/* Satellite Text Tag */}
-                <div className="mt-1 flex flex-col items-center max-w-[115px]">
+                <div className="mt-1 flex flex-col items-center">
                   <span
-                    className={`text-[10px] font-bold text-center px-2 py-0.5 rounded-md border shadow-xs truncate max-w-full transition-colors ${
+                    className={`text-[10px] font-bold text-center px-2 py-0.5 rounded-md border shadow-xs transition-colors whitespace-normal break-words ${
                       isNodeActive
                         ? 'bg-emerald-500 text-white border-emerald-400 font-extrabold shadow-emerald-500/20'
                         : 'text-zinc-800 dark:text-zinc-200 bg-white/95 dark:bg-zinc-900/95 border-zinc-200 dark:border-zinc-800 group-hover:border-zinc-400 dark:group-hover:border-zinc-600'
@@ -339,7 +339,7 @@ export const AgentStateDiagram: React.FC<AgentStateDiagramProps> = ({
                   </span>
 
                   {isNodeActive && activeChild && (
-                    <span className="text-[8.5px] text-emerald-600 dark:text-emerald-400 font-extrabold mt-0.5 animate-pulse truncate max-w-[110px]">
+                    <span className="text-[8.5px] text-emerald-600 dark:text-emerald-400 font-extrabold mt-0.5 animate-pulse text-center whitespace-normal break-words">
                       ● {activeChild.name}
                     </span>
                   )}
@@ -416,9 +416,9 @@ export const AgentStateDiagram: React.FC<AgentStateDiagramProps> = ({
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 font-bold truncate">
+                      <div className="flex items-center gap-2 font-bold min-w-0">
                         <ToolIcon className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-                        <span className="truncate">{tool.name}</span>
+                        <span className="whitespace-normal break-words">{tool.name}</span>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {isActive && (
