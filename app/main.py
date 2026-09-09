@@ -36,3 +36,6 @@ app.include_router(router)
 app.include_router(tools.router)
 
 app.include_router(eval.router)
+
+from app.api.routes import trace
+app.include_router(trace.router)
