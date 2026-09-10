@@ -66,8 +66,85 @@ async def stream_agent_trace_subprocess(
 
     asyncio.create_task(asyncio.to_thread(run_worker))
 
+    final_result = {
+        "input": input_text,
+        "actual_output": None,
+        "steps": [],
+        "errors": []
+    }
+    
+    active_tools = {}
+    active_llms = {}
+
     while True:
         item = await queue.get()
         if item is None:
             break
-        yield f"data: {item}\n\n"
+        
+        try:
+            event = json.loads(item)
+            event_type = event.get("type")
+            data = event.get("data", {})
+            summary = event.get("summary", "")
+
+            if event_type == "chain_start":
+                step_name = summary.replace("Starting chain ", "").replace("`", "")
+                if step_name not in ["RunnableSequence", "Prompt", "should_continue", "tools", "call_model", "LangGraph", "agent"]:
+                    final_result["steps"].append({
+                        "step_type": "agent_plan_start",
+                        "name": step_name,
+                        "input": data.get("input")
+                    })
+            elif event_type == "chain_end":
+                step_name = summary.replace("Finished chain ", "").replace("`", "")
+                if step_name not in ["RunnableSequence", "Prompt", "should_continue", "tools", "call_model", "LangGraph", "agent"]:
+                    final_result["steps"].append({
+                        "step_type": "agent_plan_end",
+                        "name": step_name,
+                        "output": data.get("output")
+                    })
+            elif event_type == "llm_call_start":
+                active_llms["llm"] = {
+                    "step_type": "llm_call",
+                    "name": "ChatLiteLLM",
+                    "input": data.get("input")
+                }
+            elif event_type == "llm_call_end":
+                if "llm" in active_llms:
+                    active_llms["llm"]["content"] = data.get("content")
+                    active_llms["llm"]["tool_calls"] = data.get("tool_calls")
+                    active_llms["llm"]["token_usage"] = data.get("token_usage")
+                    final_result["steps"].append(active_llms["llm"])
+                    del active_llms["llm"]
+            elif event_type == "tool_call":
+                tool_name = data.get("tool")
+                if tool_name:
+                    active_tools[tool_name] = {
+                        "step_type": "tool_call",
+                        "name": tool_name,
+                        "input": data.get("input")
+                    }
+            elif event_type == "tool_result":
+                tool_name = data.get("tool")
+                if tool_name in active_tools:
+                    active_tools[tool_name]["output"] = data.get("output")
+                    active_tools[tool_name]["error"] = None
+                    final_result["steps"].append(active_tools[tool_name])
+                    del active_tools[tool_name]
+            elif event_type == "tool_error":
+                tool_name = data.get("tool")
+                if tool_name in active_tools:
+                    active_tools[tool_name]["output"] = None
+                    active_tools[tool_name]["error"] = data.get("error")
+                    final_result["steps"].append(active_tools[tool_name])
+                    del active_tools[tool_name]
+            elif event_type in ["chain_error", "trace_error", "error"]:
+                err_text = data.get("error") or data.get("stderr") or summary
+                if err_text:
+                    final_result["errors"].append(err_text)
+            elif event_type == "completed":
+                final_result["actual_output"] = data.get("final_answer")
+        except:
+            pass
+
+    yield f"data: {json.dumps(final_result)}\n\n"

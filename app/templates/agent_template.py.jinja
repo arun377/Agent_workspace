@@ -61,24 +61,38 @@ async def run(payload: dict):
 
         # 1. Tool Invocations
         if kind == "on_tool_start":
+            tool_input = event["data"].get("input", {})
+            if isinstance(tool_input, dict) and "input" in tool_input:
+                 tool_input = tool_input["input"]
             emit_event("tool_call", f"Calling `{event['name']}`", {
                 "tool": event["name"],
-                "input": event["data"].get("input")
+                "input": tool_input
             })
 
         # 2. Tool Results
         elif kind == "on_tool_end":
+            output_val = event["data"].get("output")
+            if hasattr(output_val, "content"):
+                output_val = output_val.content
+            elif hasattr(output_val, "artifact"):
+                output_val = output_val.artifact
             emit_event("tool_result", f"Finished `{event['name']}`", {
                 "tool": event["name"],
-                "output": str(event["data"].get("output"))
+                "output": output_val
+            })
+            
+        # 3. Tool Errors
+        elif kind == "on_tool_error":
+            emit_event("tool_error", f"Error in `{event['name']}`", {
+                "tool": event["name"],
+                "error": str(event["data"].get("error"))
             })
 
-        # 3. Token Streaming (Defensive text extraction)
+        # 4. Token Streaming (Defensive text extraction)
         elif kind == "on_chat_model_stream":
             chunk = event["data"].get("chunk")
             content = getattr(chunk, "content", "")
             
-            # Content can be a string or a list of blocks
             text_piece = ""
             if isinstance(content, str):
                 text_piece = content
@@ -89,12 +103,60 @@ async def run(payload: dict):
                 full_answer_chunks.append(text_piece)
                 emit_event("token", "Generating response...", {"token": text_piece})
 
-        # 4. Fallback: Capture final output from chain completion
-        elif kind == "on_chain_end" and event["name"] == "LangGraph":
-            output = event["data"].get("output")
-            if isinstance(output, dict) and "messages" in output:
-                last_msg = output["messages"][-1]
-                final_fallback_answer = getattr(last_msg, "content", "")
+        # 5. LLM Call Tracing (Start & End)
+        elif kind == "on_chat_model_start":
+            emit_event("llm_call_start", f"Starting LLM call for `{event['name']}`", {
+                "input": "User Input Received" # Simplified to avoid massive strings
+            })
+            
+        elif kind == "on_chat_model_end":
+            output_msg = event["data"].get("output")
+            token_usage = {}
+            content = ""
+            tool_calls = []
+            
+            if hasattr(output_msg, "usage_metadata") and output_msg.usage_metadata:
+                token_usage = output_msg.usage_metadata
+            elif hasattr(output_msg, "response_metadata") and "token_usage" in output_msg.response_metadata:
+                tu = output_msg.response_metadata["token_usage"]
+                if hasattr(tu, "model_dump"):
+                    token_usage = tu.model_dump()
+                elif isinstance(tu, dict):
+                    token_usage = tu
+            
+            if hasattr(output_msg, "content"):
+                content = output_msg.content
+            if hasattr(output_msg, "tool_calls"):
+                tool_calls = output_msg.tool_calls
+            
+            emit_event("llm_call_end", f"Finished LLM call for `{event['name']}`", {
+                "content": content,
+                "tool_calls": tool_calls,
+                "token_usage": token_usage
+            })
+            
+        # 6. Chain / Plan Level Tracing
+        elif kind == "on_chain_start":
+            emit_event("chain_start", f"Starting chain `{event['name']}`", {
+                "input": str(event["data"].get("input"))
+            })
+
+        # 7. Fallback & Chain End
+        elif kind == "on_chain_end":
+            emit_event("chain_end", f"Finished chain `{event['name']}`", {
+                "output": str(event["data"].get("output"))
+            })
+            if event["name"] == "LangGraph":
+                output = event["data"].get("output")
+                if isinstance(output, dict) and "messages" in output:
+                    last_msg = output["messages"][-1]
+                    final_fallback_answer = getattr(last_msg, "content", "")
+                    
+        # 8. Chain Errors
+        elif kind == "on_chain_error":
+            emit_event("chain_error", f"Error in chain `{event['name']}`", {
+                "error": str(event["data"].get("error"))
+            })
 
     # Consolidate answer
     assembled_answer = "".join(full_answer_chunks).strip()

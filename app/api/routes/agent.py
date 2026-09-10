@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import List
 
 from fastapi import HTTPException
 from fastapi import APIRouter
@@ -22,9 +23,35 @@ from app.services.agent_exporter import create_export_bundle, package_as_zip
 
 from pydantic import BaseModel,Field
 from app.services.agent_streamer import stream_agent_subprocess
+from app.tools.builtin.builtin import BUILTIN_TOOLS
+from app.tools.mcp_servers import MCP_SERVERS
 
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+
+
+def _validate_tool_ids(tools: List[str]) -> None:
+    """Raise HTTP 422 if any tool ID references an unknown builtin or MCP server."""
+    if not tools:
+        return
+    unknown = []
+    for tool_id in tools:
+        if tool_id in BUILTIN_TOOLS:
+            continue
+        if ":" in tool_id:
+            server_id, _ = tool_id.split(":", 1)
+            if server_id in MCP_SERVERS:
+                continue
+        unknown.append(tool_id)
+    if unknown:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Unknown tool ID(s): {unknown}. "
+                f"Valid builtin tools: {list(BUILTIN_TOOLS.keys())}. "
+                f"Valid MCP server prefixes: {list(MCP_SERVERS.keys())}."
+            )
+        )
 
 @router.get("/")
 def get_agents():
@@ -41,6 +68,7 @@ def get_agent(name: str):
 
 @router.post("/",response_model=AgentCreateResponse)
 def create_agent(request:AgentCreateRequest):
+    _validate_tool_ids(request.tools)
     file_path=generate_agent(
         name = request.name,
         prompt=request.prompt,
@@ -51,6 +79,8 @@ def create_agent(request:AgentCreateRequest):
 
 @router.put("/{name}", response_model=AgentDetailResponse)
 def update_agent(name: str, request: AgentUpdateRequest):
+    if request.tools is not None:
+        _validate_tool_ids(request.tools)
     try:
         updated = update_agent_service(
             name=name,
