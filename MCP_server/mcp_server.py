@@ -1,34 +1,51 @@
 import os
-import markdown2
-import re
-import edge_tts   #text-to-speech library
-from xhtml2pdf import pisa  #pdf generation library
-from fastmcp import FastMCP
-import httpx
+import sys
 import threading
 import http.server
 import socketserver
+# pyrefly: ignore [missing-import]
+from fastmcp import FastMCP
 
-# Set up output directory and HTTP server
+try:
+    # pyrefly: ignore [missing-import]
+    from tools_service import (
+        generate_pdf_report_impl,
+        generate_tts_audio_impl,
+        scrape_website_impl,
+        generate_gitdiagram_impl,
+    )
+except ImportError:
+    from MCP_server.tools_service import (
+        generate_pdf_report_impl,
+        generate_tts_audio_impl,
+        scrape_website_impl,
+        generate_gitdiagram_impl,
+    )
+
+# ==========================================
+# OUTPUT DIRECTORY & STATIC HTTP SERVER
+# ==========================================
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 HTTP_PORT = 8082
+
 
 def start_http_server():
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=OUTPUT_DIR, **kwargs)
-    
-    # We use SO_REUSEADDR so the port is freed immediately if the server restarts
+
+    # SO_REUSEADDR ensures the port is freed immediately upon server restarts
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("0.0.0.0", HTTP_PORT), Handler) as httpd:
         print(f"Serving outputs at http://0.0.0.0:{HTTP_PORT}")
         httpd.serve_forever()
 
-# Start the file server in a background thread
+
+# Start the file server in a background daemon thread
 threading.Thread(target=start_http_server, daemon=True).start()
 
-# Helper for resolving output files securely
+
 def get_output_file_info(filename: str):
     """Sanitizes filename and returns absolute local path and public URL."""
     safe_filename = os.path.basename(filename)
@@ -36,114 +53,41 @@ def get_output_file_info(filename: str):
     public_url = f"http://127.0.0.1:{HTTP_PORT}/{safe_filename}"
     return safe_filename, local_path, public_url
 
-# Initialize the MCP Server (Renamed to reflect it will hold multiple tools)
+
+# ==========================================
+# FASTMCP SERVER INITIALIZATION
+# ==========================================
 mcp = FastMCP("NetworkMCPServer")
 
-def normalize_markdown(md_content: str) -> str:
-    """Basic normalization in case the LLM outputs weird formatting."""
-    return md_content.strip()
 
 # ==========================================
 # TOOL 1: PDF Generator
 # ==========================================
 @mcp.tool()
-def generate_pdf_report(md_content: str, title: str = "", output_filename: str = "output.pdf") -> str:
-    """
-    Converts Markdown text into a beautifully formatted PDF file.
-    
+def generate_pdf_report(
+    md_content: str, 
+    title: str = "Document Report", 
+    output_filename: str = "report.pdf"
+) -> str:
+    """Converts Markdown text into a beautifully styled, publication-ready PDF document.
+
+    Use this tool whenever the user requests a PDF, report, summary document, or formatted printable export.
+    Supports full Markdown including headers (#, ##), tables, bold/italic styling, ordered/unordered lists, and code blocks.
+
     Args:
-        md_content: The markdown content to be converted into the PDF.
-        title: The title of the document to display at the top.
-        output_filename: The name of the file to save (e.g., 'report.pdf').
-        
+        md_content: The Markdown formatted body text to render into the PDF.
+        title: The main document title displayed in the top header. Defaults to 'Document Report'.
+        output_filename: The target filename for the generated PDF (e.g., 'analysis_report.pdf'). Defaults to 'report.pdf'.
+
     Returns:
-        A string containing the absolute file path where the PDF was saved.
+        A direct download URL where the generated PDF document is hosted and can be viewed or downloaded.
     """
-    clean_md = normalize_markdown(md_content)
-
-    html_content = markdown2.markdown(
-        clean_md, 
-        extras=["tables", "fenced-code-blocks", "cuddled-lists", "break-on-newline"]
-    )
-
-    left_footer_text = "" 
-
-    html_template = f"""
-    <html>
-    <head>
-        <style>
-            @page {{
-                size: A4;
-                margin: 40px 60px;
-                @frame footer_frame {{
-                    -pdf-frame-content: footer_content;
-                    bottom: 10pt; margin-left: 60px; margin-right: 60px; height: 20pt;
-                }}
-            }}
-            body {{ font-family: Helvetica, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #333; }}
-            #footer_content {{ font-size: 8pt; color: #555; font-family: Helvetica, Arial, sans-serif; }}
-            .footer-table {{ width: 100%; border: none; margin: 0; table-layout: auto; }}
-            .footer-table td {{ border: none; padding: 0; vertical-align: bottom; font-size: 8pt; }}
-            .footer-left {{ text-align: left; font-style: italic; width: 85%; }}
-            .footer-right {{ text-align: right; width: 15%; white-space: nowrap; }}
-            .doc-title {{ text-align: center; font-size: 24pt; font-weight: bold; margin-bottom: 25px; color: #003366; border-bottom: 2px solid #003366; padding-bottom: 10px; }}
-            h1 {{ font-size: 18pt; margin-top: 25px; margin-bottom: 10px; color: #003366; border-bottom: 1px solid #ddd; }}
-            h2 {{ font-size: 15pt; margin-top: 20px; margin-bottom: 8px; color: #005500; }}
-            h3 {{ font-size: 13pt; margin-top: 15px; margin-bottom: 6px; color: #993300; }}
-            h4 {{ font-size: 11pt; font-weight: bold; margin-top: 10px; margin-bottom: 4px; }}
-            p {{ margin-bottom: 8px; text-align: justify; }}
-            ul, ol {{ margin-top: 5px; margin-bottom: 10px; padding-left: 20px; }}
-            li {{ margin-bottom: 4px; }}
-            table {{ width: 100%; border-collapse: collapse; margin: 15px 0; table-layout: fixed; border: 1px solid #ddd; }}
-            th {{ background-color: #f2f2f2; font-weight: bold; color: #333; border: 1px solid #bbb; padding: 6px; font-size: 10pt; }}
-            td {{ border: 1px solid #bbb; padding: 6px; font-size: 10pt; vertical-align: top; word-wrap: break-word; }}
-            pre {{ background-color: #f5f5f5; border: 1px solid #ccc; padding: 10px; border-radius: 4px; font-family: Consolas, monospace; font-size: 9pt; white-space: pre-wrap; word-break: break-all; }}
-            code {{ font-family: Courier; background-color: #f3f4f6; padding: 2px 4px; font-size: 90%; font-weight: bold; }}
-            blockquote {{ border-left: 4px solid #003366; padding-left: 10px; color: #555; font-style: italic; }}
-        </style>
-    </head>
-    <body>
-        <div id="footer_content">
-            <table class="footer-table">
-                <tr>
-                    <td class="footer-left">{left_footer_text}</td>
-                    <td class="footer-right">Page <pdf:pagenumber> of <pdf:pagecount></td>
-                </tr>
-            </table>
-        </div>
-        {f"<div class='doc-title'>{title}</div>" if title else ""}
-        {html_content}
-    </body>
-    </html>
-    """
-
-    if not output_filename.endswith('.pdf'):
+    if not output_filename.endswith(".pdf"):
         output_filename += ".pdf"
-        
+
     safe_filename, file_path, public_url = get_output_file_info(output_filename)
+    return generate_pdf_report_impl(md_content, title, file_path, public_url)
 
-    with open(file_path, "wb") as f:
-        pisa_status = pisa.CreatePDF(html_template, dest=f)
-    
-    if pisa_status.err:
-        raise Exception(f"Error during PDF generation: {pisa_status.err}")
-
-    return f"Success! You can download the PDF here: {public_url}"
-
-
-def clean_text_for_speech(text: str) -> str:
-    """Removes common markdown formatting so the TTS engine reads naturally."""
-    # Remove code blocks entirely (they sound terrible read out loud)
-    text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
-    # Remove inline code backticks
-    text = re.sub(r'`', '', text)
-    # Remove bold/italic markdown symbols
-    text = re.sub(r'[*_]{1,3}', '', text)
-    # Remove markdown headers (#)
-    text = re.sub(r'#+\s', '', text)
-    # Convert markdown links [Text](URL) into just "Text"
-    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
-    return text.strip()
 
 # ==========================================
 # TOOL 2: Text-To-Speech (TTS) Audio Generator
@@ -151,106 +95,75 @@ def clean_text_for_speech(text: str) -> str:
 @mcp.tool()
 async def generate_tts_audio(
     text: str, 
-    voice: str = "en-US-AriaNeural", 
+    voice: str = "en-US-ChristopherNeural", 
     output_filename: str = "speech.mp3"
 ) -> str:
-    """
-    Converts text or markdown into high-quality, natural-sounding speech audio (.mp3).
-    
-    Args:
-        text: The text to convert to speech.
-        voice: The neural voice to use. Popular options include:
-               - 'en-US-AriaNeural' (US Female - Default)
-               - 'en-US-GuyNeural' (US Male)
-               - 'en-GB-SoniaNeural' (UK Female)
-               - 'en-GB-RyanNeural' (UK Male)
-               - 'en-AU-NatashaNeural' (Australian Female)
-        output_filename: The name of the file to save (must end in .mp3).
-        
-    Returns:
-        A string containing the absolute file path where the audio was saved.
-    """
-    # Enforce .mp3 extension (edge-tts generates mp3 natively)
-    if not output_filename.endswith('.mp3'):
-        output_filename += ".mp3"
-        
-    safe_filename, file_path, public_url = get_output_file_info(output_filename)
-    
-    # Strip markdown artifacts so the voice reads cleanly
-    clean_text = clean_text_for_speech(text)
-    
-    if not clean_text:
-        return "Error: No readable text provided after cleaning."
+    """Converts text or markdown into high-clarity, natural-sounding spoken audio (.mp3).
 
-    # edge_tts operates asynchronously, which FastMCP natively supports!
-    communicate = edge_tts.Communicate(clean_text, voice)
-    await communicate.save(file_path)
-    
-    return f"Success! You can download your audio file here: {public_url}"
+    Uses Microsoft Edge neural text-to-speech with a crystal-clear, professional male voice by default.
+    Markdown syntax, URLs, and code blocks are automatically cleaned for smooth, natural narration.
+
+    Args:
+        text: The text or markdown narrative to speak aloud.
+        voice: Neural voice identifier. Defaults to 'en-US-ChristopherNeural' (clear, professional US male voice).
+               Alternative options:
+               - 'en-US-GuyNeural' (passionate US male)
+               - 'en-US-BrianNeural' (conversational US male)
+               - 'en-GB-RyanNeural' (clear British male)
+               - 'en-US-AriaNeural' (clear US female)
+        output_filename: The target filename for the MP3 file (e.g., 'podcast.mp3'). Defaults to 'speech.mp3'.
+
+    Returns:
+        A direct download URL where the generated MP3 audio file is hosted and can be played or downloaded.
+    """
+    if not output_filename.endswith(".mp3"):
+        output_filename += ".mp3"
+
+    safe_filename, file_path, public_url = get_output_file_info(output_filename)
+    return await generate_tts_audio_impl(text, voice, file_path, public_url)
+
 
 # ==========================================
 # TOOL 3: Website Scraper (via Firecrawl)
 # ==========================================
 @mcp.tool()
 async def scrape_website(url: str) -> str:
-    """
-    Scrapes any website and converts its contents into clean Markdown using Firecrawl.
-    Great for reading documentation, articles, or extracting data from a URL.
-    
+    """Scrapes a public webpage and extracts its core content as clean, structured Markdown.
+
+    Ideal for reading articles, technical documentation, blog posts, and websites without ads or HTML clutter.
+
     Args:
-        url: The full URL of the website to scrape (e.g., 'https://en.wikipedia.org/wiki/Python_(programming_language)').
-        
+        url: The complete HTTP/HTTPS web address to scrape (e.g., 'https://docs.python.org/3/').
+
     Returns:
-        A string containing the markdown content of the scraped webpage.
+        Clean, structured Markdown text extracted from the webpage.
     """
-    # Firecrawl's keyless V2 Scrape endpoint (No API key required)
-    api_url = "https://api.firecrawl.dev/v2/scrape"
-    payload = {
-        "url": url,
-        "formats": ["markdown"] # We only request markdown to save bandwidth
-    }
-    
-    # We use a 30-second timeout because some heavy Javascript pages take time to render
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        try:
-            response = await client.post(api_url, json=payload)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if data.get("success"):
-                # Extract and return the markdown from the JSON response
-                markdown_content = data["data"].get("markdown", "")
-                if not markdown_content:
-                    return f"Successfully scraped {url}, but no markdown content was returned."
-                return markdown_content
-            else:
-                return f"Firecrawl failed to scrape the page: {data.get('error', 'Unknown error')}"
-                
-        except httpx.HTTPStatusError as e:
-            return f"HTTP Error: {e.response.status_code} - {e.response.text}"
-        except Exception as e:
-            return f"An error occurred while connecting to Firecrawl: {str(e)}"
+    return await scrape_website_impl(url)
+
 
 # ==========================================
-# PLACEHOLDER: Future Tools
+# TOOL 4: GitDiagram Visualizer
 # ==========================================
-# Just add the @mcp.tool() decorator to any new function!
+@mcp.tool()
+async def generate_gitdiagram(username: str, repo: str) -> str:
+    """Generates an architectural diagram and comprehensive technical explanation for a GitHub repository.
 
-# @mcp.tool()
-# def fetch_web_data(url: str) -> str:
-#     """Fetches data from a given URL."""
-#     return "Data from URL"
+    Automatically checks a local cache first to ensure instantaneous response and avoid rate limits.
+    Compiles an interactive Mermaid diagram saved as an HTML page and provides an architectural breakdown.
 
-# @mcp.tool()
-# def process_images(image_path: str) -> str:
-#     """Processes an image and returns results."""
-#     return "Image processed"
+    Args:
+        username: The GitHub organization or username owning the repository (e.g., 'facebook', 'fastapi').
+        repo: The GitHub repository name (e.g., 'react', 'fastapi').
+
+    Returns:
+        A technical architecture analysis paired with a local URL to view the interactive diagram in a web browser.
+    """
+    return await generate_gitdiagram_impl(username, repo, OUTPUT_DIR, get_output_file_info)
 
 
+# ==========================================
+# SERVER ENTRY POINT
+# ==========================================
 if __name__ == "__main__":
-    # Start the server using SSE (Server-Sent Events)
-    # host="0.0.0.0" allows external devices on your network to connect
-    # port=8081 is the HTTP port they will connect to
     print("Starting MCP Server on SSE...")
     mcp.run(transport="sse", host="0.0.0.0", port=8081)
