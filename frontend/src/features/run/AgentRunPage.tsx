@@ -19,12 +19,14 @@ import {
   Check,
   MessageSquare,
   Activity,
+  FlaskConical,
 } from 'lucide-react';
 import { Tool, AgentStreamEvent, TraceTreeNode } from '../../types/agent';
 import { AgentStateDiagram } from '../dashboard/AgentStateDiagram';
 import { useAgentStore } from '../../store/useAgentStore';
 import { useToast } from '../../components/ui/Toast';
 import { TraceViewer } from './TraceViewer';
+import { AgentEvalManager } from '../evals/AgentEvalManager';
 
 export interface ToolTrace {
   id: string;
@@ -53,14 +55,81 @@ export const AgentRunPage: React.FC = () => {
   const { showToast } = useToast();
 
   const [query, setQuery] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (!id) return [];
+    try {
+      const saved = sessionStorage.getItem(`agent_chat_session_${id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.messages)) return parsed.messages;
+      }
+    } catch {}
+    return [];
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTool, setActiveTool] = useState<string | undefined>(undefined);
   const [expandedTraces, setExpandedTraces] = useState<Record<string, boolean>>({});
-  const [sessionId, setSessionId] = useState<string>(() => `session-${Date.now()}`);
+  const [sessionId, setSessionId] = useState<string>(() => {
+    if (!id) return `session-${Date.now()}`;
+    try {
+      const saved = sessionStorage.getItem(`agent_chat_session_${id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.sessionId) return parsed.sessionId;
+      }
+    } catch {}
+    return `session-${Date.now()}`;
+  });
   const [hasCopiedPrompt, setHasCopiedPrompt] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chat' | 'trace'>('chat');
-  const [latestTrace, setLatestTrace] = useState<TraceTreeNode | null>(null);
+  const [activeTab, setActiveTab] = useState<'chat' | 'trace' | 'evals'>('chat');
+  const [latestTrace, setLatestTrace] = useState<TraceTreeNode | null>(() => {
+    if (!id) return null;
+    try {
+      const saved = sessionStorage.getItem(`agent_chat_session_${id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.latestTrace) return parsed.latestTrace;
+      }
+    } catch {}
+    return null;
+  });
+
+  // Keep session storage synchronized with ongoing chat, session ID, and trace
+  useEffect(() => {
+    if (!id) return;
+    try {
+      if (messages.length > 0 || latestTrace) {
+        sessionStorage.setItem(
+          `agent_chat_session_${id}`,
+          JSON.stringify({
+            sessionId,
+            messages,
+            latestTrace,
+          })
+        );
+      }
+    } catch (e) {
+      console.warn('Failed to save chat session', e);
+    }
+  }, [id, sessionId, messages, latestTrace]);
+
+  // Handle switching agent ID
+  useEffect(() => {
+    if (!id) return;
+    try {
+      const saved = sessionStorage.getItem(`agent_chat_session_${id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.sessionId) setSessionId(parsed.sessionId);
+        if (Array.isArray(parsed.messages)) setMessages(parsed.messages);
+        if (parsed.latestTrace) setLatestTrace(parsed.latestTrace);
+        return;
+      }
+    } catch {}
+    setSessionId(`session-${Date.now()}`);
+    setMessages([]);
+    setLatestTrace(null);
+  }, [id]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -116,7 +185,11 @@ export const AgentRunPage: React.FC = () => {
     setActiveTool(undefined);
     setLatestTrace(null);
     setActiveTab('chat');
-    setSessionId(`session-${Date.now()}`);
+    const newSessionId = `session-${Date.now()}`;
+    setSessionId(newSessionId);
+    if (id) {
+      sessionStorage.removeItem(`agent_chat_session_${id}`);
+    }
     showToast('Session Reset', 'Chat history cleared', 'info');
   };
 
@@ -452,6 +525,20 @@ export const AgentRunPage: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Evals Tab */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('evals')}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+              activeTab === 'evals'
+                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs'
+                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+            }`}
+          >
+            <FlaskConical className="w-3.5 h-3.5" />
+            <span>Evals</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -482,7 +569,11 @@ export const AgentRunPage: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => navigate(`/agents/edit/${agent.id}`)}
+            onClick={() =>
+              navigate(`/agents/edit/${agent.id}?returnTo=run`, {
+                state: { from: `/agents/run/${agent.name || agent.id}` },
+              })
+            }
             className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-xs"
             title="Edit Agent Configuration"
           >
@@ -491,8 +582,12 @@ export const AgentRunPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Main Canvas: Chat View or Trace View */}
-      {activeTab === 'trace' ? (
+      {/* 2. Main Canvas: Chat View, Trace View, or Evals View */}
+      {activeTab === 'evals' ? (
+        <div className="flex-1 min-h-0 overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs bg-white/70 dark:bg-zinc-900/60">
+          <AgentEvalManager agentName={agent.name} />
+        </div>
+      ) : activeTab === 'trace' ? (
         <div className="flex-1 min-h-0 overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
           <TraceViewer trace={latestTrace} agentName={agent.name} />
         </div>

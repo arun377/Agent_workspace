@@ -20,6 +20,7 @@ import {
   Play,
   Settings,
   Eye,
+  FlaskConical,
 } from 'lucide-react';
 import { Agent, Tool } from '../../types/agent';
 import { useAgentStore } from '../../store/useAgentStore';
@@ -32,6 +33,7 @@ interface AgentCardProps {
   onSelect?: (agentId: string) => void;
   onInspect?: (agent: Agent) => void;
   onTest?: (agent: Agent) => void;
+  onEvals?: (agent: Agent) => void;
   onDeleteRequest: (agent: Agent) => void;
 }
 
@@ -54,6 +56,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
   onSelect,
   onInspect,
   onTest,
+  onEvals,
   onDeleteRequest,
 }) => {
   const navigate = useNavigate();
@@ -271,6 +274,18 @@ export const AgentCard: React.FC<AgentCardProps> = ({
             title="Edit Agent Configuration"
           >
             <Settings className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEvals ? onEvals(agent) : onInspect?.(agent);
+            }}
+            className="p-2 rounded-xl text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 transition-colors"
+            title="Agent Evaluation Dataset"
+          >
+            <FlaskConical className="w-3.5 h-3.5" />
           </button>
 
           <button

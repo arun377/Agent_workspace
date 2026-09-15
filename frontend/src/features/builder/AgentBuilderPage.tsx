@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -48,6 +48,11 @@ function useOutsideAlerter(ref: React.RefObject<HTMLDivElement | null>, onClickO
 export const AgentBuilderPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const returnTo = searchParams.get('returnTo');
+  const fromState = (location.state as any)?.from;
+
   const { agents, createAgent, updateAgent, tools, fetchTools, fetchAgents } = useAgentStore();
   const { showToast } = useToast();
 
@@ -160,7 +165,11 @@ export const AgentBuilderPage: React.FC = () => {
         });
         showToast('Success', `${values.name} created successfully`, 'success');
       }
-      navigate('/agents');
+      if (returnTo === 'run' || fromState) {
+        navigate(fromState || `/agents/run/${values.name || existingAgent?.name || id}`);
+      } else {
+        navigate('/agents');
+      }
     } catch (err: any) {
       showToast('Error', err.message || 'Failed to save the agent. Please try again.', 'error');
     } finally {
@@ -237,7 +246,13 @@ export const AgentBuilderPage: React.FC = () => {
           <div className="flex items-center gap-3.5">
             <button
               type="button"
-              onClick={() => navigate('/agents')}
+              onClick={() => {
+                if (returnTo === 'run' || fromState) {
+                  navigate(fromState || `/agents/run/${existingAgent?.name || id}`);
+                } else {
+                  navigate('/agents');
+                }
+              }}
               className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />

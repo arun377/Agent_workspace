@@ -21,12 +21,14 @@ import {
   MoreVertical,
   Trash2,
   Eye,
+  FlaskConical,
 } from 'lucide-react';
 import { useAgentStore } from '../../store/useAgentStore';
 import { Agent, Tool } from '../../types/agent';
 import { AgentCard } from './AgentCard';
 import { GlassModal } from '../../components/ui/GlassModal';
 import { useToast } from '../../components/ui/Toast';
+import { AgentEvalManager } from '../evals/AgentEvalManager';
 
 type ViewMode = 'grid' | 'table';
 type SortOption = 'updated' | 'name' | 'tools';
@@ -60,6 +62,7 @@ export const DashboardPage: React.FC = () => {
   // Inspector State (Slide-over drawer)
   const [inspectedAgent, setInspectedAgent] = useState<Agent | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<'specs' | 'evals'>('specs');
   const [hasCopiedPrompt, setHasCopiedPrompt] = useState(false);
 
   // Modal State for Delete Confirmation
@@ -140,8 +143,9 @@ export const DashboardPage: React.FC = () => {
   const totalTools = tools.length;
   const totalModels = availableModels.filter((m) => m !== 'all').length;
 
-  const handleOpenInspector = (agent: Agent) => {
+  const handleOpenInspector = (agent: Agent, tab: 'specs' | 'evals' = 'specs') => {
     setInspectedAgent(agent);
+    setInspectorTab(tab);
     setIsInspectorOpen(true);
   };
 
@@ -367,8 +371,9 @@ export const DashboardPage: React.FC = () => {
                     agent={agent}
                     toolsMap={toolsMap}
                     isSelected={isSelected}
-                    onSelect={() => handleOpenInspector(agent)}
-                    onInspect={() => handleOpenInspector(agent)}
+                    onSelect={() => handleOpenInspector(agent, 'specs')}
+                    onInspect={() => handleOpenInspector(agent, 'specs')}
+                    onEvals={() => handleOpenInspector(agent, 'evals')}
                     onTest={() => navigate(`/agents/run/${agent.id}`)}
                     onDeleteRequest={(ag) => setDeletingAgent(ag)}
                   />
@@ -487,9 +492,18 @@ export const DashboardPage: React.FC = () => {
 
                             <button
                               type="button"
-                              onClick={() => handleOpenInspector(agent)}
+                              onClick={() => handleOpenInspector(agent, 'evals')}
+                              className="p-1.5 rounded-lg text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                              title="Agent Evaluation Dataset"
+                            >
+                              <FlaskConical className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenInspector(agent, 'specs')}
                               className={`p-1.5 rounded-lg border transition-colors ${
-                                isSelected
+                                isSelected && inspectorTab === 'specs'
                                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
                                   : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 border-transparent'
                               }`}
@@ -616,19 +630,29 @@ export const DashboardPage: React.FC = () => {
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: 'spring', damping: 26, stiffness: 280 }}
-                className="w-screen max-w-md bg-white dark:bg-zinc-950 shadow-2xl border-l border-zinc-200 dark:border-zinc-800 flex flex-col"
+                className="w-screen max-w-2xl bg-white dark:bg-zinc-950 shadow-2xl border-l border-zinc-200 dark:border-zinc-800 flex flex-col"
               >
                 {/* Drawer Header */}
                 <div className="p-5 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-900 dark:text-white">
-                      <Layers className="w-4 h-4" />
+                      {inspectorTab === 'evals' ? (
+                        <FlaskConical className="w-4 h-4 text-zinc-900 dark:text-white" />
+                      ) : (
+                        <Layers className="w-4 h-4" />
+                      )}
                     </div>
                     <div>
                       <h3 className="font-bold text-sm text-zinc-900 dark:text-white">
-                        Agent Telemetry & Specs
+                        {inspectorTab === 'evals'
+                          ? `Evaluations: ${inspectedAgent.name}`
+                          : 'Agent Telemetry & Specs'}
                       </h3>
-                      <p className="text-[11px] text-zinc-500">Live configuration inspection</p>
+                      <p className="text-[11px] text-zinc-500 font-mono">
+                        {inspectorTab === 'evals'
+                          ? 'Manage benchmarks & synthetic test cases'
+                          : 'Live configuration inspection'}
+                      </p>
                     </div>
                   </div>
 
@@ -641,8 +665,41 @@ export const DashboardPage: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Drawer Scrollable Body */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
+                {/* Drawer Tab Switcher */}
+                <div className="flex items-center border-b border-zinc-200 dark:border-zinc-800 px-6 bg-zinc-50/50 dark:bg-zinc-900/30 gap-6">
+                  <button
+                    type="button"
+                    onClick={() => setInspectorTab('specs')}
+                    className={`py-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+                      inspectorTab === 'specs'
+                        ? 'border-zinc-900 dark:border-white text-zinc-900 dark:text-white'
+                        : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Telemetry & Specs</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInspectorTab('evals')}
+                    className={`py-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+                      inspectorTab === 'evals'
+                        ? 'border-zinc-900 dark:border-white text-zinc-900 dark:text-white'
+                        : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
+                    }`}
+                  >
+                    <FlaskConical className="w-3.5 h-3.5" />
+                    <span>Evals Dataset</span>
+                  </button>
+                </div>
+
+                {/* Drawer Body */}
+                {inspectorTab === 'evals' ? (
+                  <div className="flex-1 overflow-hidden">
+                    <AgentEvalManager agentName={inspectedAgent.name} />
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
                   {/* Hero Identity Banner */}
                   <div className="flex items-start gap-3.5 pb-5 border-b border-zinc-100 dark:border-zinc-900">
                     <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shrink-0">
@@ -766,6 +823,7 @@ export const DashboardPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Bottom Drawer Actions */}
                 <div className="p-5 border-t border-zinc-100 dark:border-zinc-900 flex items-center gap-3 bg-zinc-50/50 dark:bg-zinc-900/40">

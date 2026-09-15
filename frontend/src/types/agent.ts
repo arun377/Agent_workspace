@@ -91,3 +91,30 @@ export interface TraceTreeNode {
   metadata?: Record<string, any>;
   children?: TraceTreeNode[];
 }
+
+export interface EvalDataItem {
+  index: number;
+  input: string;
+  expected_output: string;
+  expected_tools: string[];
+  source: 'llm' | 'human';
+  reviewed: boolean;
+}
+
+export interface EvalDataUpdateRequest {
+  input?: string;
+  expected_output?: string;
+  expected_tools?: string[];
+  reviewed?: boolean;
+}
+
+export interface EvalDataGenerateRequest {
+  num_cases: number;
+}
+
+export interface EvalDataGenerateResponse {
+  generated_count: number;
+  total_count: number;
+  file_path: string;
+}
+
