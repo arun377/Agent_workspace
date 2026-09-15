@@ -17,20 +17,24 @@ import {
   Settings,
   Copy,
   Check,
+  MessageSquare,
+  Activity,
 } from 'lucide-react';
-import { Tool, AgentStreamEvent } from '../../types/agent';
+import { Tool, AgentStreamEvent, TraceTreeNode } from '../../types/agent';
 import { AgentStateDiagram } from '../dashboard/AgentStateDiagram';
 import { useAgentStore } from '../../store/useAgentStore';
 import { useToast } from '../../components/ui/Toast';
+import { TraceViewer } from './TraceViewer';
 
 export interface ToolTrace {
   id: string;
-  type: 'tool_call' | 'tool_result' | 'status' | 'error';
+  type: 'tool_call' | 'tool_result' | 'status' | 'error' | 'step';
   tool?: string;
   summary: string;
   input?: any;
   output?: any;
   timestamp: number;
+  step?: any;
 }
 
 export interface ChatMessage {
@@ -55,9 +59,11 @@ export const AgentRunPage: React.FC = () => {
   const [expandedTraces, setExpandedTraces] = useState<Record<string, boolean>>({});
   const [sessionId, setSessionId] = useState<string>(() => `session-${Date.now()}`);
   const [hasCopiedPrompt, setHasCopiedPrompt] = useState(false);
+  const [activeTab, setActiveTab] = useState<'chat' | 'trace'>('chat');
+  const [latestTrace, setLatestTrace] = useState<TraceTreeNode | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // Load agents and tools if not present
   useEffect(() => {
@@ -82,9 +88,11 @@ export const AgentRunPage: React.FC = () => {
     return agent.toolIds.map((tid) => toolsMap[tid]).filter(Boolean);
   }, [agent, toolsMap]);
 
-  // Scroll to bottom on message update
+  // Scroll only the chat container to bottom on message update
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [messages, isProcessing]);
 
   // Clean up on unmount
@@ -106,6 +114,8 @@ export const AgentRunPage: React.FC = () => {
     setMessages([]);
     setIsProcessing(false);
     setActiveTool(undefined);
+    setLatestTrace(null);
+    setActiveTab('chat');
     setSessionId(`session-${Date.now()}`);
     showToast('Session Reset', 'Chat history cleared', 'info');
   };
@@ -134,6 +144,7 @@ export const AgentRunPage: React.FC = () => {
     if (!query.trim() || isProcessing || !agent) return;
     const currentQuery = query.trim();
     setQuery('');
+    setActiveTab('chat');
 
     const userMsgId = `user-${Date.now()}`;
     const agentMsgId = `agent-${Date.now()}`;
@@ -164,7 +175,43 @@ export const AgentRunPage: React.FC = () => {
         sessionId,
         signal: controller.signal,
         onEvent: (event: AgentStreamEvent) => {
-          if (event.type === 'token') {
+          if (event.type === 'trace_tree') {
+            if (event.data) {
+              setLatestTrace(event.data as TraceTreeNode);
+            }
+          } else if (event.type === 'step') {
+            const stepData = event.data;
+            if (stepData?.step_type === 'tool' && !stepData.output) {
+                setActiveTool(stepData.name);
+            } else if (stepData?.output || stepData?.error) {
+                setActiveTool(undefined);
+            }
+            
+            setMessages((prev) => 
+              prev.map((m) => {
+                if (m.id === agentMsgId) {
+                  const existingTraces = m.traces || [];
+                  const existingIdx = existingTraces.findIndex(t => t.id === stepData?.name + '-' + (stepData?.step_type || ''));
+                  const newTrace: ToolTrace = {
+                    id: stepData?.name + '-' + (stepData?.step_type || ''),
+                    type: 'step',
+                    summary: event.summary || stepData?.name || 'Step',
+                    step: stepData,
+                    timestamp: Date.now()
+                  };
+                  
+                  if (existingIdx >= 0) {
+                    const updatedTraces = [...existingTraces];
+                    updatedTraces[existingIdx] = newTrace;
+                    return { ...m, traces: updatedTraces };
+                  } else {
+                    return { ...m, traces: [...existingTraces, newTrace] };
+                  }
+                }
+                return m;
+              })
+            );
+          } else if (event.type === 'token') {
             const token = event.data?.token || '';
             setMessages((prev) =>
               prev.map((m) =>
@@ -330,7 +377,7 @@ export const AgentRunPage: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] max-w-7xl mx-auto">
+    <div className="flex flex-col h-full w-full min-h-0 overflow-hidden">
       {/* Sleek Minimal Top Navigation Bar */}
       <div className="shrink-0 flex items-center justify-between px-1 py-1 mb-2">
         <div className="flex items-center gap-2.5">
@@ -354,6 +401,55 @@ export const AgentRunPage: React.FC = () => {
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/50 px-2 py-0.5 rounded-md animate-pulse">
                 {activeTool ? `calling ${activeTool}...` : 'processing...'}
               </span>
+            )}
+          </div>
+        </div>
+
+        {/* Center: Tabs for Chat and Trace */}
+        <div className="flex items-center p-0.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/80 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('chat')}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+              activeTab === 'chat'
+                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs'
+                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>Chat</span>
+          </button>
+
+          <div className="relative group">
+            <button
+              type="button"
+              disabled={isProcessing || !latestTrace}
+              onClick={() => {
+                if (!isProcessing && latestTrace) {
+                  setActiveTab('trace');
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                isProcessing || !latestTrace
+                  ? 'opacity-40 cursor-not-allowed text-zinc-400 dark:text-zinc-600'
+                  : activeTab === 'trace'
+                  ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Trace</span>
+              {!isProcessing && latestTrace && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              )}
+            </button>
+
+            {(isProcessing || !latestTrace) && (
+              <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-50 whitespace-nowrap rounded-md bg-zinc-900 dark:bg-zinc-100 px-2 py-1 text-[10px] font-medium text-white dark:text-zinc-900 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                {isProcessing
+                  ? 'Trace available after run completes'
+                  : 'Run a query to view execution trace'}
+              </div>
             )}
           </div>
         </div>
@@ -395,11 +491,16 @@ export const AgentRunPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Main Canvas: Chat + Architecture Diagram */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
+      {/* 2. Main Canvas: Chat View or Trace View */}
+      {activeTab === 'trace' ? (
+        <div className="flex-1 min-h-0 overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
+          <TraceViewer trace={latestTrace} agentName={agent.name} />
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
         {/* Left: Chat Interaction Area */}
         <div className="flex-1 min-w-0 flex flex-col h-full bg-zinc-50/40 dark:bg-zinc-950/40 overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+          <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto py-12">
                 <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-4">
@@ -490,24 +591,53 @@ export const AgentRunPage: React.FC = () => {
                                     {trace.type === 'status' && (
                                       <span className="text-blue-500">ℹ STATUS</span>
                                     )}
+                                    {trace.type === 'step' && trace.step?.step_type === 'llm' && (
+                                      <span className="text-purple-500">❖ LLM</span>
+                                    )}
+                                    {trace.type === 'step' && trace.step?.step_type === 'tool' && (
+                                      <span className="text-amber-500">▶ TOOL</span>
+                                    )}
                                     <span>{trace.summary}</span>
                                   </div>
 
-                                  {trace.input !== undefined && (
+                                  {(trace.input !== undefined || (trace.type === 'step' && trace.step?.input)) && (
                                     <div className="mt-1 text-zinc-500 dark:text-zinc-400 break-all break-words overflow-hidden">
                                       <span className="text-zinc-400 font-semibold">input: </span>
-                                      {typeof trace.input === 'object'
-                                        ? JSON.stringify(trace.input)
-                                        : String(trace.input)}
+                                      {typeof (trace.step?.input ?? trace.input) === 'object'
+                                        ? JSON.stringify(trace.step?.input ?? trace.input)
+                                        : String(trace.step?.input ?? trace.input)}
                                     </div>
                                   )}
 
-                                  {trace.output !== undefined && (
+                                  {(trace.output !== undefined || (trace.type === 'step' && trace.step?.output)) && (
                                     <div className="mt-1 text-zinc-500 dark:text-zinc-400 break-all break-words overflow-hidden">
                                       <span className="text-zinc-400 font-semibold">output: </span>
-                                      {typeof trace.output === 'object'
-                                        ? JSON.stringify(trace.output)
-                                        : String(trace.output)}
+                                      {typeof (trace.step?.output ?? trace.output) === 'object'
+                                        ? JSON.stringify(trace.step?.output ?? trace.output)
+                                        : String(trace.step?.output ?? trace.output)}
+                                    </div>
+                                  )}
+
+                                  {trace.type === 'step' && trace.step?.content && trace.step.content.length > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                      {trace.step.content.map((block: any, idx: number) => (
+                                        block.type === 'thinking' ? (
+                                          <div key={idx} className="p-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded border border-purple-100 dark:border-purple-800/30 text-[10px] italic">
+                                            <span className="font-semibold not-italic block mb-1">🤔 Thinking:</span>
+                                            {block.thinking || <span className="opacity-50">Thinking tokens generated but content redacted by provider</span>}
+                                          </div>
+                                        ) : null
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {trace.type === 'step' && trace.step?.token_usage && (
+                                    <div className="mt-2 flex gap-3 text-[10px] text-zinc-400 font-semibold">
+                                      <span>In: {trace.step.token_usage.input_tokens || trace.step.token_usage.prompt_tokens || 0}</span>
+                                      <span>Out: {trace.step.token_usage.output_tokens || trace.step.token_usage.completion_tokens || 0}</span>
+                                      {trace.step.token_usage?.output_token_details?.reasoning > 0 && (
+                                        <span className="text-purple-400">Reasoning: {trace.step.token_usage.output_token_details.reasoning}</span>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -566,7 +696,6 @@ export const AgentRunPage: React.FC = () => {
                 );
               })
             )}
-            <div ref={messagesEndRef} />
           </div>
 
           {/* Chat Input Section */}
@@ -648,6 +777,7 @@ export const AgentRunPage: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };

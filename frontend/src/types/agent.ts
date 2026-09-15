@@ -37,7 +37,7 @@ export interface Agent {
 }
 
 export interface AgentStreamEvent {
-  type: 'status' | 'tool_call' | 'tool_result' | 'token' | 'completed' | 'error' | string;
+  type: 'status' | 'tool_call' | 'tool_result' | 'token' | 'completed' | 'error' | 'step' | string;
   summary?: string;
   data?: {
     tool?: string;
@@ -58,4 +58,36 @@ export interface AgentRunOptions {
   sessionId?: string;
   onEvent?: (event: AgentStreamEvent) => void;
   signal?: AbortSignal;
+}
+
+export interface TraceTokenUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  [key: string]: any;
+}
+
+export interface TraceCost {
+  total_cost?: number;
+  prompt_cost?: number;
+  completion_cost?: number;
+  [key: string]: any;
+}
+
+export interface TraceTreeNode {
+  id: string;
+  name: string;
+  run_type: 'chain' | 'llm' | 'tool' | 'retriever' | 'prompt' | string;
+  status: 'success' | 'error' | string;
+  start_time?: string;
+  end_time?: string;
+  latency_ms?: number;
+  tokens?: TraceTokenUsage;
+  cost?: TraceCost;
+  total_cost?: number;
+  inputs?: any;
+  outputs?: any;
+  error?: string | null;
+  metadata?: Record<string, any>;
+  children?: TraceTreeNode[];
 }

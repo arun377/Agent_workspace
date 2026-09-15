@@ -1,9 +1,12 @@
 import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { useThemeStore } from '../../store/useThemeStore';
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { initTheme } = useThemeStore();
+  const location = useLocation();
+  const isRunPage = location.pathname.includes('/agents/run');
 
   useEffect(() => {
     initTheme();
@@ -18,11 +21,19 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <Header />
 
       {/* Main Content Scroll Area */}
-      <main className="flex-1 overflow-y-auto relative z-10 p-4 sm:p-6 md:p-8 scroll-smooth">
-        <div className="max-w-7xl mx-auto w-full min-h-full pb-12">
-          {children}
-        </div>
-      </main>
+      {isRunPage ? (
+        <main className="flex-1 overflow-hidden relative z-10 p-2 sm:p-3 flex flex-col min-h-0">
+          <div className="max-w-7xl mx-auto w-full h-full flex flex-col min-h-0 overflow-hidden">
+            {children}
+          </div>
+        </main>
+      ) : (
+        <main className="flex-1 overflow-y-auto relative z-10 p-4 sm:p-6 md:p-8 scroll-smooth">
+          <div className="max-w-7xl mx-auto w-full min-h-full pb-12">
+            {children}
+          </div>
+        </main>
+      )}
     </div>
   );
 };
