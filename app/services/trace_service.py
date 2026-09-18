@@ -129,6 +129,13 @@ def fetch_langsmith_trace_tree(
     if not all_runs:
         all_runs = [root_run]
 
+    return _build_tree_from_runs(all_runs, root_run, agent_name)
+
+def _build_tree_from_runs(
+    all_runs: List[Any], 
+    root_run: Any, 
+    agent_name: str
+) -> Optional[Dict[str, Any]]:
     # Convert runs to tree node dicts
     node_map: Dict[str, Dict[str, Any]] = {}
     parent_children_map: Dict[Optional[str], List[str]] = {}
@@ -171,3 +178,43 @@ def fetch_langsmith_trace_tree(
     # Construct the recursive tree starting from root_id
     tree = _build_tree_recursive(node_map, parent_children_map, root_id)
     return tree
+
+def get_latest_agent_trace(agent_name: str) -> Optional[Dict[str, Any]]:
+    """
+    Fetches the most recent execution trace tree for an agent directly from LangSmith.
+    """
+    if not is_langsmith_enabled():
+        return None
+
+    try:
+        from langsmith import Client
+        client = Client()
+        project_name = os.environ.get("LANGCHAIN_PROJECT", "default")
+        runs = list(client.list_runs(
+            project_name=project_name,
+            is_root=True,
+            limit=10
+        ))
+        if not runs:
+            return None
+
+        # Sort runs by start_time descending
+        runs.sort(key=lambda r: r.start_time or datetime.datetime.min, reverse=True)
+        
+        # Look for run with matching agent_name or LangGraph
+        target_run = None
+        for r in runs:
+            r_name = getattr(r, "name", "")
+            if r_name == agent_name or r_name == "LangGraph":
+                target_run = r
+                break
+        if not target_run:
+            target_run = runs[0]
+
+        trace_id = str(target_run.trace_id or target_run.id)
+        all_runs = list(client.list_runs(trace_id=trace_id)) or [target_run]
+        return _build_tree_from_runs(all_runs, target_run, agent_name)
+    except Exception as e:
+        logger.warning(f"Failed to fetch latest agent trace: {e}")
+        return None
+

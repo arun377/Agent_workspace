@@ -2,11 +2,12 @@ import os
 from litellm import completion, acompletion
 from deepeval.models.base_model import DeepEvalBaseLLM
 from deepeval.metrics import TaskCompletionMetric, GEval , ToolCorrectnessMetric, HallucinationMetric
+from deepeval.metrics.step_efficiency import StepEfficiencyMetric
 from deepeval.test_case import LLMTestCaseParams
 
 
 class LiteLLMGeneratorModel(DeepEvalBaseLLM):
-    def __init__(self, model_string: str = "groq/openai/gpt-oss-120b"):
+    def __init__(self, model_string: str = "gemini/gemini-3.5-flash-lite"):
         self.model_string = model_string
 
     def load_model(self):
@@ -57,10 +58,13 @@ def build_deterministic_metrics(metric_names: list[str], judge_model) -> list:
 
 def build_non_deterministic_metrics(metric_names: list[str], judge_model) -> list:
     available = {
-        "task_completion": lambda: TaskCompletionMetric(threshold=0.7, model=judge_model) ,
-        
+        "task_completion": lambda: TaskCompletionMetric(threshold=0.7, model=judge_model),
         "hallucination": lambda: HallucinationMetric(threshold=0.5, model=judge_model),
-        
+        "step_efficiency": lambda: StepEfficiencyMetric(
+            threshold=0.5,
+            model=judge_model,
+            async_mode=False,
+        ),
     }
     metrics = []
     for name in metric_names:

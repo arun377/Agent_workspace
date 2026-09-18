@@ -16,6 +16,7 @@ from app.services.metric_registry import (
     get_default_judge_model
 )
 from evaluator.runner import evaluate_agent
+from app.services.eval_runner import evaluate_agent_with_trace
 
 router = APIRouter(prefix="/agents", tags=["eval"])
 
@@ -82,7 +83,7 @@ def evaluate_non_deterministic(name: str, request: NonDeterministicEvalRequest):
     agent_fn = make_agent_fn(name)
 
     # reports is a list[EvalReport]
-    reports = evaluate_agent(agent_fn, test_cases, metrics)
+    reports = evaluate_agent_with_trace(agent_fn, test_cases, metrics)
 
     # Iterate directly over reports (not reports.results)
     results = [

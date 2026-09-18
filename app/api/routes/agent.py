@@ -272,3 +272,12 @@ async def run_agent_endpoint(name: str, req: AgentRunRequest):
             "X-Accel-Buffering": "no"
         }
     )
+
+@router.get("/{name}/trace/latest")
+def get_latest_trace_endpoint(name: str):
+    """Fetches the most recent LangSmith trace tree for the agent."""
+    from app.services.trace_service import get_latest_agent_trace
+    trace = get_latest_agent_trace(name)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"No trace tree available for agent '{name}'")
+    return trace
