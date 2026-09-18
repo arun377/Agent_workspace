@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { Agent, Tool, AgentStatus, AIModel, AgentStreamEvent, AgentRunOptions } from '../types/agent';
+import { Agent, Tool, AgentStatus, AIModel, AgentStreamEvent, AgentRunOptions, TraceTreeNode } from '../types/agent';
 
 interface AgentState {
   agents: Agent[];
@@ -11,6 +11,7 @@ interface AgentState {
   // Actions
   fetchAgents: () => Promise<void>;
   fetchTools: () => Promise<void>;
+  fetchLatestTrace: (name: string) => Promise<TraceTreeNode | null>;
   runAgent: (name: string, inputText: string, options?: AgentRunOptions) => Promise<{ result: string; events: AgentStreamEvent[] }>;
   createAgent: (agent: Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Agent>;
   updateAgent: (id: string, agent: Partial<Omit<Agent, 'id' | 'createdAt'>>) => Promise<Agent>;
@@ -45,7 +46,7 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
           
           const mappedAgents: Agent[] = data.map((item: any) => {
             const agentName = item.name || item.AGENT_NAME || 'Unknown';
-            let rawModel = item.model || item.MODEL_STRING || 'gemini/gemini-2.5-pro';
+            let rawModel = item.model || item.MODEL_STRING || 'gemini/gemini-3.8-flash';
             // Auto-migrate legacy agents missing the provider prefix
             if (!rawModel.includes('/')) {
               if (rawModel.startsWith('gpt')) rawModel = `openai/${rawModel}`;
@@ -99,6 +100,19 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
         } catch (error: any) {
           console.error('Error fetching tools:', error);
           set({ error: error.message, isToolsLoading: false });
+        }
+      },
+
+      fetchLatestTrace: async (name: string): Promise<TraceTreeNode | null> => {
+        try {
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+          const response = await fetch(`${baseUrl}/agents/${encodeURIComponent(name)}/trace/latest`);
+          if (!response.ok) return null;
+          const data = await response.json();
+          return data as TraceTreeNode;
+        } catch (e) {
+          console.warn('Failed to fetch latest trace for agent:', name, e);
+          return null;
         }
       },
 

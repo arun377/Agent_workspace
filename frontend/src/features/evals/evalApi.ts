@@ -4,6 +4,11 @@ import {
   EvalDataGenerateResponse,
   EvalDataUpdateRequest,
 } from '../../types/agent';
+import {
+  DeterministicEvalRequest,
+  NonDeterministicEvalRequest,
+  EvalReportResponse,
+} from '../../types/eval';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
@@ -63,3 +68,46 @@ export async function updateEvalCase(
   }
   return res.json();
 }
+
+export async function runDeterministicEval(
+  agentName: string,
+  payload: DeterministicEvalRequest
+): Promise<EvalReportResponse> {
+  const res = await fetch(`${BASE_URL}/agents/${encodeURIComponent(agentName)}/evaluate/deterministic`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorMsg = 'Failed to run deterministic evaluation';
+    try {
+      const err = await res.json();
+      if (err.detail) errorMsg = err.detail;
+    } catch {}
+    throw new Error(errorMsg);
+  }
+  return res.json();
+}
+
+export async function runNonDeterministicEval(
+  agentName: string,
+  payload: NonDeterministicEvalRequest
+): Promise<EvalReportResponse> {
+  const res = await fetch(`${BASE_URL}/agents/${encodeURIComponent(agentName)}/evaluate/non-deterministic`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorMsg = 'Failed to run non-deterministic evaluation';
+    try {
+      const err = await res.json();
+      if (err.detail) errorMsg = err.detail;
+    } catch {}
+    throw new Error(errorMsg);
+  }
+  return res.json();
+}
+

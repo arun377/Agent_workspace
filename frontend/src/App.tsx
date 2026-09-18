@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/useAuthStore';
 import { ToastProvider } from './components/ui/Toast';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './features/auth/LoginPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
@@ -20,7 +21,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 export default function App() {
   return (
-    <ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
       <BrowserRouter>
         <Routes>
           {/* Public Auth Route */}
@@ -66,5 +68,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </ToastProvider>
+    </ErrorBoundary>
   );
 }

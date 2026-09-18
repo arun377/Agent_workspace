@@ -20,18 +20,50 @@ export interface ModelInfo {
 export const AI_MODELS_INFO: Record<string, ModelInfo[]> = {
   "Google Gemini": [
     {
-      id: 'gemini/gemini-1.5-pro-latest',
-      name: 'Gemini 1.5 Pro (Latest)',
-      badge: 'New',
-      description: 'Latest Gemini 1.5 Pro model with high capabilities and multimodal reasoning.',
+      id: 'gemini/gemini-3.8-flash',
+      name: 'Gemini 3.8 Flash',
+      badge: 'Reasoning',
+      description: 'Next-gen Gemini 3 flagship model with native reasoning, high multimodal intelligence, and fast latency.',
+      speed: 'Blazing',
+      cost: 'Balanced'
+    },
+    {
+      id: 'gemini/gemini-3.8-live-extended-thinking',
+      name: 'Gemini 3.8 Live Extended Thinking',
+      badge: 'Extended Thinking',
+      description: 'Real-time reasoning model featuring extended thinking tokens for complex multi-step problems and deep logic.',
       speed: 'Fast',
+      cost: 'Balanced'
+    },
+    {
+      id: 'gemini/gemini-3.7-flash',
+      name: 'Gemini 3.7 Flash',
+      badge: 'Thinking / Hybrid',
+      description: 'First hybrid reasoning model with dynamically controllable thinking depth and rapid tool orchestration.',
+      speed: 'Fast',
+      cost: 'Balanced'
+    },
+    {
+      id: 'gemini/gemini-3.1-pro-preview',
+      name: 'Gemini 3.1 Pro',
+      badge: 'Complex Reasoning',
+      description: 'Frontier reasoning model built for intricate multi-step problem solving, math, and code synthesis.',
+      speed: 'Balanced',
       cost: 'Premium'
     },
     {
-      id: 'gemini/gemini-1.5-flash-latest',
-      name: 'Gemini 1.5 Flash (Latest)',
-      badge: 'New',
-      description: 'Latest Gemini 1.5 Flash for maximum speed and efficiency.',
+      id: 'gemini/gemini-3.5-flash-lite',
+      name: 'Gemini 3.5 Flash-Lite',
+      badge: 'Lite',
+      description: 'Ultra-lightweight model engineered for minimal latency and maximum cost-efficiency in high-throughput agents.',
+      speed: 'Blazing',
+      cost: 'Economy'
+    },
+    {
+      id: 'gemini/gemini-3.1-flash-lite',
+      name: 'Gemini 3.1 Flash-Lite',
+      badge: 'Lite',
+      description: 'High-throughput lightweight model tailored for cost-effective, high-frequency tool executions.',
       speed: 'Blazing',
       cost: 'Economy'
     },
@@ -42,22 +74,6 @@ export const AI_MODELS_INFO: Record<string, ModelInfo[]> = {
       description: 'State-of-the-art open weights model for complex reasoning and agentic tasks.',
       speed: 'Fast',
       cost: 'Free'
-    },
-    {
-      id: 'gemini/gemini-3.5-flash',
-      name: 'Gemini 3.5 Flash',
-      badge: 'Ultra Fast',
-      description: 'Latest lightweight, ultra-low latency model ideal for high-frequency agent workflows.',
-      speed: 'Blazing',
-      cost: 'Economy'
-    },
-    {
-      id: 'gemini/gemini-2.5-pro',
-      name: 'Gemini 2.5 Pro',
-      badge: 'Recommended',
-      description: 'Complex reasoning, 2M context window, high multimodal performance.',
-      speed: 'Fast',
-      cost: 'Balanced'
     }
   ],
   "OpenAI": [

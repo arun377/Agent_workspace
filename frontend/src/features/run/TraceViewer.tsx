@@ -24,12 +24,16 @@ import {
   ExternalLink,
   Download,
   FileText,
+  RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import { TraceTreeNode } from '../../types/agent';
 
-interface TraceViewerProps {
+export interface TraceViewerProps {
   trace: TraceTreeNode | null;
   agentName?: string;
+  onRefreshTrace?: () => void;
+  isLoadingTrace?: boolean;
 }
 
 // Helpers for run-type badges
@@ -582,7 +586,12 @@ const renderRoleBadge = (role: string, toolName?: string) => {
   }
 };
 
-export const TraceViewer: React.FC<TraceViewerProps> = ({ trace, agentName }) => {
+export const TraceViewer: React.FC<TraceViewerProps> = ({
+  trace,
+  agentName,
+  onRefreshTrace,
+  isLoadingTrace,
+}) => {
   const [selectedNodeId, setSelectedNodeId] = useState<string>(() => trace?.id || '');
   const [collapsedNodes, setCollapsedNodes] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -619,6 +628,21 @@ export const TraceViewer: React.FC<TraceViewerProps> = ({ trace, agentName }) =>
     return calculateMetrics(trace);
   }, [trace]);
 
+  // Parse messages from inputs & outputs (must be top-level hook to satisfy React rules)
+  const parsedInputMessages = useMemo(() => {
+    return selectedNode?.inputs ? extractMessagesFromPayload(selectedNode.inputs) : null;
+  }, [selectedNode?.inputs]);
+
+  const parsedOutputMessages = useMemo(() => {
+    return selectedNode?.outputs ? extractMessagesFromPayload(selectedNode.outputs) : null;
+  }, [selectedNode?.outputs]);
+
+  // Extract text output for tool runs
+  const extractedToolOutput = useMemo(() => {
+    if (!selectedNode?.outputs) return null;
+    return extractTextContent(selectedNode.outputs);
+  }, [selectedNode?.outputs]);
+
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
@@ -638,20 +662,6 @@ export const TraceViewer: React.FC<TraceViewerProps> = ({ trace, agentName }) =>
     allIds.forEach(id => { collapsed[id] = true; });
     setCollapsedNodes(collapsed);
   };
-
-  if (!trace) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-white/40 dark:bg-zinc-950/40">
-        <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400">
-          <Clock className="w-6 h-6" />
-        </div>
-        <h4 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">No Trace Data Available</h4>
-        <p className="text-xs text-zinc-500 mt-1 max-w-sm">
-          Run a query in the Chat tab. Once the agent execution completes, the full hierarchical trace tree will appear here.
-        </p>
-      </div>
-    );
-  }
 
   // Recursive Tree Node Renderer
   const renderTreeNode = (node: TraceTreeNode, depth: number = 0) => {
@@ -747,20 +757,34 @@ export const TraceViewer: React.FC<TraceViewerProps> = ({ trace, agentName }) =>
   const selectedCostFormatted = selectedNode ? formatCost(selectedNode.total_cost ?? selectedNode.cost?.total_cost) : null;
   const metricsCostFormatted = formatCost(metrics?.totalCost);
 
-  // Parse messages from inputs & outputs
-  const parsedInputMessages = useMemo(() => {
-    return selectedNode?.inputs ? extractMessagesFromPayload(selectedNode.inputs) : null;
-  }, [selectedNode?.inputs]);
-
-  const parsedOutputMessages = useMemo(() => {
-    return selectedNode?.outputs ? extractMessagesFromPayload(selectedNode.outputs) : null;
-  }, [selectedNode?.outputs]);
-
-  // Extract text output for tool runs
-  const extractedToolOutput = useMemo(() => {
-    if (!selectedNode?.outputs) return null;
-    return extractTextContent(selectedNode.outputs);
-  }, [selectedNode?.outputs]);
+  if (!trace) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-white/40 dark:bg-zinc-950/40">
+        <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-zinc-400">
+          <Clock className="w-6 h-6" />
+        </div>
+        <h4 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">No Trace Data Available</h4>
+        <p className="text-xs text-zinc-500 mt-1 max-w-sm mb-4">
+          Run a query in the Chat tab or click below to check for the latest recorded execution trace.
+        </p>
+        {onRefreshTrace && (
+          <button
+            type="button"
+            onClick={onRefreshTrace}
+            disabled={isLoadingTrace}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-all shadow-xs"
+          >
+            {isLoadingTrace ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RotateCcw className="w-3.5 h-3.5" />
+            )}
+            <span>{isLoadingTrace ? 'Fetching Trace...' : 'Check for Latest Trace'}</span>
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col md:flex-row h-full w-full overflow-hidden bg-white/70 dark:bg-zinc-950/70 backdrop-blur-sm">
@@ -768,16 +792,27 @@ export const TraceViewer: React.FC<TraceViewerProps> = ({ trace, agentName }) =>
       <div className="w-full md:w-80 lg:w-96 shrink-0 flex flex-col h-full border-r border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30">
         {/* Top Summary Bar */}
         <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <span className="text-xs font-bold text-zinc-900 dark:text-white truncate">
               {trace.name || agentName || 'Execution Trace'}
             </span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
               Completed
             </span>
           </div>
 
-          <div className="flex items-center gap-1 text-zinc-400">
+          <div className="flex items-center gap-1 text-zinc-400 shrink-0">
+            {onRefreshTrace && (
+              <button
+                type="button"
+                onClick={onRefreshTrace}
+                disabled={isLoadingTrace}
+                className="p-1 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800 rounded transition-colors"
+                title="Refresh Trace from LangSmith"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${isLoadingTrace ? 'animate-spin text-blue-500' : ''}`} />
+              </button>
+            )}
             <button
               type="button"
               onClick={handleExpandAll}

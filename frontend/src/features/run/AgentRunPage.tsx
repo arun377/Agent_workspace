@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Loader2,
   AlertCircle,
+  CheckCircle2,
   Settings,
   Copy,
   Check,
@@ -27,6 +28,7 @@ import { useAgentStore } from '../../store/useAgentStore';
 import { useToast } from '../../components/ui/Toast';
 import { TraceViewer } from './TraceViewer';
 import { AgentEvalManager } from '../evals/AgentEvalManager';
+import { MarkdownRenderer, formatMessageContent } from '../../components/ui/MarkdownRenderer';
 
 export interface ToolTrace {
   id: string;
@@ -36,8 +38,76 @@ export interface ToolTrace {
   input?: any;
   output?: any;
   timestamp: number;
+  completedAt?: number;
+  duration?: string;
+  status?: 'running' | 'completed' | 'error';
+  error?: any;
   step?: any;
 }
+
+const safeStringify = (val: any): string => {
+  if (val === undefined || val === null) return '';
+  if (typeof val === 'string') return val;
+  try {
+    return JSON.stringify(val, null, 2);
+  } catch {
+    return String(val);
+  }
+};
+
+const formatToolName = (rawName?: any): string => {
+  if (!rawName) return 'tool';
+  let str = '';
+  if (typeof rawName === 'string') {
+    str = rawName;
+  } else if (typeof rawName === 'object' && rawName !== null) {
+    str = rawName.name || rawName.tool || rawName.summary || rawName.title || '';
+    if (!str) {
+      try {
+        str = JSON.stringify(rawName);
+      } catch {
+        str = 'tool';
+      }
+    }
+  } else {
+    str = String(rawName);
+  }
+  let clean = str.replace(/`/g, '').trim();
+  if (clean.includes(':')) {
+    const parts = clean.split(':');
+    clean = parts[parts.length - 1].trim();
+  }
+  return clean || 'tool';
+};
+
+const sanitizeMessages = (rawList: any[]): ChatMessage[] => {
+  if (!Array.isArray(rawList)) return [];
+  return rawList.map((m, idx) => ({
+    id: typeof m?.id === 'string' ? m.id : `msg-${idx}-${Date.now()}`,
+    role: m?.role === 'agent' ? 'agent' : 'user',
+    content: formatMessageContent(m?.content),
+    traces: Array.isArray(m?.traces)
+      ? m.traces.map((t: any, tIdx: number) => ({
+          id: typeof t?.id === 'string' ? t.id : `trace-${tIdx}-${Date.now()}`,
+          type: t?.type || 'tool_call',
+          tool: typeof t?.tool === 'string' ? t.tool : formatToolName(t?.tool),
+          summary:
+            typeof t?.summary === 'string'
+              ? t.summary
+              : `Calling tool: ${formatToolName(t?.tool || t?.summary)}`,
+          input: t?.input,
+          output: t?.output,
+          timestamp: typeof t?.timestamp === 'number' ? t.timestamp : Date.now(),
+          completedAt: t?.completedAt,
+          duration: typeof t?.duration === 'string' ? t.duration : undefined,
+          status: t?.status === 'running' || t?.status === 'error' ? t.status : 'completed',
+          error: t?.error,
+        }))
+      : [],
+    isStreaming: false,
+    error: m?.error ? (typeof m.error === 'string' ? m.error : safeStringify(m.error)) : undefined,
+  }));
+};
 
 export interface ChatMessage {
   id: string;
@@ -51,17 +121,18 @@ export interface ChatMessage {
 export const AgentRunPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { agents, tools, fetchAgents, fetchTools, runAgent, isLoading } = useAgentStore();
+  const { agents, tools, fetchAgents, fetchTools, fetchLatestTrace, runAgent, isLoading } = useAgentStore();
   const { showToast } = useToast();
 
   const [query, setQuery] = useState('');
+  const [isLoadingTrace, setIsLoadingTrace] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (!id) return [];
     try {
       const saved = sessionStorage.getItem(`agent_chat_session_${id}`);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed.messages)) return parsed.messages;
+        if (Array.isArray(parsed.messages)) return sanitizeMessages(parsed.messages);
       }
     } catch {}
     return [];
@@ -121,7 +192,7 @@ export const AgentRunPage: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.sessionId) setSessionId(parsed.sessionId);
-        if (Array.isArray(parsed.messages)) setMessages(parsed.messages);
+        if (Array.isArray(parsed.messages)) setMessages(sanitizeMessages(parsed.messages));
         if (parsed.latestTrace) setLatestTrace(parsed.latestTrace);
         return;
       }
@@ -177,6 +248,41 @@ export const AgentRunPage: React.FC = () => {
       [msgId]: !prev[msgId],
     }));
   };
+
+  const handleFetchLatestTrace = async (silent: boolean = false) => {
+    if (!agent?.name) return;
+    setIsLoadingTrace(true);
+    try {
+      const trace = await fetchLatestTrace(agent.name);
+      if (trace) {
+        setLatestTrace(trace);
+        if (!silent) {
+          showToast('Trace Loaded', 'Latest execution trace retrieved', 'success');
+        }
+      } else {
+        if (!silent) {
+          showToast('No Trace Found', 'No recorded trace found for this agent yet', 'info');
+        }
+      }
+    } catch (e: any) {
+      console.warn('Failed to fetch trace:', e);
+    } finally {
+      setIsLoadingTrace(false);
+    }
+  };
+
+  // Auto-fetch latest trace on initial agent load or when activeTab switches to 'trace'
+  useEffect(() => {
+    if (agent?.name) {
+      if (activeTab === 'trace') {
+        handleFetchLatestTrace(true);
+      } else if (!latestTrace) {
+        fetchLatestTrace(agent.name).then((trace) => {
+          if (trace) setLatestTrace(trace);
+        });
+      }
+    }
+  }, [agent?.name, activeTab]);
 
   const handleClearHistory = () => {
     abortControllerRef.current?.abort();
@@ -254,36 +360,87 @@ export const AgentRunPage: React.FC = () => {
             }
           } else if (event.type === 'step') {
             const stepData = event.data;
-            if (stepData?.step_type === 'tool' && !stepData.output) {
-                setActiveTool(stepData.name);
-            } else if (stepData?.output || stepData?.error) {
+            if (stepData?.step_type === 'tool') {
+              const toolName = stepData.name;
+              const isStart = !stepData.output && !stepData.error;
+
+              if (isStart) {
+                setActiveTool(toolName);
+                setMessages((prev) =>
+                  prev.map((m) => {
+                    if (m.id === agentMsgId) {
+                      const traces = m.traces || [];
+                      const existingIdx = traces.findIndex(
+                        (t) => t.tool === toolName && t.status === 'running'
+                      );
+                      if (existingIdx >= 0) return m;
+
+                      const newTrace: ToolTrace = {
+                        id: `tool-${formatToolName(toolName)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                        type: 'tool_call',
+                        tool: toolName,
+                        summary: `Calling tool: ${formatToolName(toolName)}`,
+                        status: 'running',
+                        input: stepData.input,
+                        timestamp: Date.now(),
+                      };
+                      return { ...m, traces: [...traces, newTrace] };
+                    }
+                    return m;
+                  })
+                );
+              } else {
                 setActiveTool(undefined);
+                setMessages((prev) =>
+                  prev.map((m) => {
+                    if (m.id === agentMsgId) {
+                      const traces = m.traces || [];
+                      const targetIdx = traces.findIndex(
+                        (t) => t.tool === toolName && t.status === 'running'
+                      );
+                      const isErr = Boolean(stepData.error);
+                      if (targetIdx >= 0) {
+                        const target = traces[targetIdx];
+                        const durationMs = Date.now() - target.timestamp;
+                        const duration =
+                          durationMs < 1000
+                            ? `${durationMs}ms`
+                            : `${(durationMs / 1000).toFixed(1)}s`;
+                        const updatedTraces = [...traces];
+                        updatedTraces[targetIdx] = {
+                          ...target,
+                          summary: isErr
+                            ? `Failed tool: ${formatToolName(toolName)}`
+                            : `Finished tool: ${formatToolName(toolName)}`,
+                          status: isErr ? 'error' : 'completed',
+                          completedAt: Date.now(),
+                          duration,
+                          output: stepData.output,
+                          error: stepData.error,
+                        };
+                        return { ...m, traces: updatedTraces };
+                      } else {
+                        const newTrace: ToolTrace = {
+                          id: `tool-${formatToolName(toolName)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                          type: 'tool_result',
+                          tool: toolName,
+                          summary: isErr
+                            ? `Failed tool: ${formatToolName(toolName)}`
+                            : `Finished tool: ${formatToolName(toolName)}`,
+                          status: isErr ? 'error' : 'completed',
+                          completedAt: Date.now(),
+                          output: stepData.output,
+                          error: stepData.error,
+                          timestamp: Date.now(),
+                        };
+                        return { ...m, traces: [...traces, newTrace] };
+                      }
+                    }
+                    return m;
+                  })
+                );
+              }
             }
-            
-            setMessages((prev) => 
-              prev.map((m) => {
-                if (m.id === agentMsgId) {
-                  const existingTraces = m.traces || [];
-                  const existingIdx = existingTraces.findIndex(t => t.id === stepData?.name + '-' + (stepData?.step_type || ''));
-                  const newTrace: ToolTrace = {
-                    id: stepData?.name + '-' + (stepData?.step_type || ''),
-                    type: 'step',
-                    summary: event.summary || stepData?.name || 'Step',
-                    step: stepData,
-                    timestamp: Date.now()
-                  };
-                  
-                  if (existingIdx >= 0) {
-                    const updatedTraces = [...existingTraces];
-                    updatedTraces[existingIdx] = newTrace;
-                    return { ...m, traces: updatedTraces };
-                  } else {
-                    return { ...m, traces: [...existingTraces, newTrace] };
-                  }
-                }
-                return m;
-              })
-            );
           } else if (event.type === 'token') {
             const token = event.data?.token || '';
             setMessages((prev) =>
@@ -293,83 +450,154 @@ export const AgentRunPage: React.FC = () => {
             );
           } else if (event.type === 'tool_call') {
             const toolName = event.data?.tool;
-            if (toolName) setActiveTool(toolName);
-            const trace: ToolTrace = {
-              id: `trace-${Date.now()}-${Math.random()}`,
-              type: 'tool_call',
-              tool: toolName,
-              summary: event.summary || `Calling ${toolName}`,
-              input: event.data?.input,
-              timestamp: Date.now(),
-            };
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === agentMsgId
-                  ? { ...m, traces: [...(m.traces || []), trace] }
-                  : m
-              )
-            );
+            if (toolName) {
+              setActiveTool(toolName);
+              setMessages((prev) =>
+                prev.map((m) => {
+                  if (m.id === agentMsgId) {
+                    const traces = m.traces || [];
+                    const existingIdx = traces.findIndex(
+                      (t) => t.tool === toolName && t.status === 'running'
+                    );
+                    if (existingIdx >= 0) {
+                      if (!traces[existingIdx].input && event.data?.input) {
+                        const updated = [...traces];
+                        updated[existingIdx] = {
+                          ...updated[existingIdx],
+                          input: event.data.input,
+                        };
+                        return { ...m, traces: updated };
+                      }
+                      return m;
+                    }
+                    const trace: ToolTrace = {
+                      id: `tool-${formatToolName(toolName)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                      type: 'tool_call',
+                      tool: toolName,
+                      summary: `Calling tool: ${formatToolName(toolName)}`,
+                      status: 'running',
+                      input: event.data?.input,
+                      timestamp: Date.now(),
+                    };
+                    return { ...m, traces: [...traces, trace] };
+                  }
+                  return m;
+                })
+              );
+            }
           } else if (event.type === 'tool_result') {
+            const toolName = event.data?.tool;
             setActiveTool(undefined);
-            const trace: ToolTrace = {
-              id: `trace-${Date.now()}-${Math.random()}`,
-              type: 'tool_result',
-              tool: event.data?.tool,
-              summary: event.summary || `Finished ${event.data?.tool}`,
-              output: event.data?.output,
-              timestamp: Date.now(),
-            };
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === agentMsgId
-                  ? { ...m, traces: [...(m.traces || []), trace] }
-                  : m
-              )
-            );
-          } else if (event.type === 'status') {
-            const trace: ToolTrace = {
-              id: `trace-${Date.now()}-${Math.random()}`,
-              type: 'status',
-              summary: event.summary || 'Working...',
-              timestamp: Date.now(),
-            };
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === agentMsgId
-                  ? { ...m, traces: [...(m.traces || []), trace] }
-                  : m
-              )
-            );
+            if (toolName) {
+              setMessages((prev) =>
+                prev.map((m) => {
+                  if (m.id === agentMsgId) {
+                    const traces = m.traces || [];
+                    const targetIdx = traces.findIndex(
+                      (t) => t.tool === toolName && t.status === 'running'
+                    );
+                    if (targetIdx >= 0) {
+                      const target = traces[targetIdx];
+                      const durationMs = Date.now() - target.timestamp;
+                      const duration =
+                        durationMs < 1000
+                          ? `${durationMs}ms`
+                          : `${(durationMs / 1000).toFixed(1)}s`;
+                      const updated = [...traces];
+                      updated[targetIdx] = {
+                        ...target,
+                        summary: `Finished tool: ${formatToolName(toolName)}`,
+                        status: 'completed',
+                        completedAt: Date.now(),
+                        duration,
+                        output: event.data?.output,
+                      };
+                      return { ...m, traces: updated };
+                    } else {
+                      const trace: ToolTrace = {
+                        id: `tool-${formatToolName(toolName)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                        type: 'tool_result',
+                        tool: toolName,
+                        summary: `Finished tool: ${formatToolName(toolName)}`,
+                        status: 'completed',
+                        completedAt: Date.now(),
+                        output: event.data?.output,
+                        timestamp: Date.now(),
+                      };
+                      return { ...m, traces: [...traces, trace] };
+                    }
+                  }
+                  return m;
+                })
+              );
+            }
           } else if (event.type === 'completed') {
             setActiveTool(undefined);
-            const finalAnswer = event.data?.final_answer;
+            const rawFinal = event.data?.final_answer;
+            const finalAnswer = formatMessageContent(rawFinal);
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === agentMsgId
-                  ? {
-                      ...m,
-                      content:
-                        finalAnswer !== undefined && finalAnswer !== ''
-                          ? finalAnswer
-                          : m.content,
-                      isStreaming: false,
-                    }
-                  : m
-              )
+              prev.map((m) => {
+                if (m.id === agentMsgId) {
+                  const cleanedTraces = (m.traces || []).map((t) =>
+                    t.status === 'running'
+                      ? {
+                          ...t,
+                          status: 'completed' as const,
+                          summary: `Finished tool: ${formatToolName(t.tool)}`,
+                        }
+                      : t
+                  );
+                  return {
+                    ...m,
+                    traces: cleanedTraces,
+                    content: finalAnswer || m.content,
+                    isStreaming: false,
+                  };
+                }
+                return m;
+              })
             );
+
+            // Re-sync latest trace in background
+            if (agent?.name) {
+              fetchLatestTrace(agent.name).then((trace) => {
+                if (trace) setLatestTrace(trace);
+              });
+              setTimeout(() => {
+                fetchLatestTrace(agent.name).then((trace) => {
+                  if (trace) setLatestTrace(trace);
+                });
+              }, 1200);
+            }
           } else if (event.type === 'error') {
             setActiveTool(undefined);
-            const errorText = event.summary || event.data?.stderr || 'Execution error';
+            const errorText =
+              typeof event.summary === 'string'
+                ? event.summary
+                : event.data?.stderr
+                ? String(event.data.stderr)
+                : 'Execution error';
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === agentMsgId
-                  ? {
-                      ...m,
-                      error: errorText,
-                      isStreaming: false,
-                    }
-                  : m
-              )
+              prev.map((m) => {
+                if (m.id === agentMsgId) {
+                  const cleanedTraces = (m.traces || []).map((t) =>
+                    t.status === 'running'
+                      ? {
+                          ...t,
+                          status: 'error' as const,
+                          summary: `Failed tool: ${formatToolName(t.tool)}`,
+                        }
+                      : t
+                  );
+                  return {
+                    ...m,
+                    traces: cleanedTraces,
+                    error: errorText,
+                    isStreaming: false,
+                  };
+                }
+                return m;
+              })
             );
           }
         },
@@ -389,7 +617,7 @@ export const AgentRunPage: React.FC = () => {
         );
       } else {
         const errorMsg =
-          error.message || 'Failed to connect to the agent server. Is the backend running?';
+          error?.message || (typeof error === 'string' ? error : safeStringify(error)) || 'Failed to connect to the agent server. Is the backend running?';
         setMessages((prev) =>
           prev.map((m) =>
             m.id === agentMsgId
@@ -493,38 +721,30 @@ export const AgentRunPage: React.FC = () => {
             <span>Chat</span>
           </button>
 
-          <div className="relative group">
-            <button
-              type="button"
-              disabled={isProcessing || !latestTrace}
-              onClick={() => {
-                if (!isProcessing && latestTrace) {
-                  setActiveTab('trace');
-                }
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                isProcessing || !latestTrace
-                  ? 'opacity-40 cursor-not-allowed text-zinc-400 dark:text-zinc-600'
-                  : activeTab === 'trace'
-                  ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('trace');
+              if (agent?.name) {
+                handleFetchLatestTrace(true);
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+              activeTab === 'trace'
+                ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
+            }`}
+          >
+            {isProcessing ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
+            ) : (
               <Activity className="w-3.5 h-3.5" />
-              <span>Trace</span>
-              {!isProcessing && latestTrace && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              )}
-            </button>
-
-            {(isProcessing || !latestTrace) && (
-              <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-50 whitespace-nowrap rounded-md bg-zinc-900 dark:bg-zinc-100 px-2 py-1 text-[10px] font-medium text-white dark:text-zinc-900 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-                {isProcessing
-                  ? 'Trace available after run completes'
-                  : 'Run a query to view execution trace'}
-              </div>
             )}
-          </div>
+            <span>Trace</span>
+            {latestTrace ? (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            ) : null}
+          </button>
 
           {/* Evals Tab */}
           <button
@@ -582,17 +802,21 @@ export const AgentRunPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Main Canvas: Chat View, Trace View, or Evals View */}
-      {activeTab === 'evals' ? (
-        <div className="flex-1 min-h-0 overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs bg-white/70 dark:bg-zinc-900/60">
-          <AgentEvalManager agentName={agent.name} />
-        </div>
-      ) : activeTab === 'trace' ? (
-        <div className="flex-1 min-h-0 overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
-          <TraceViewer trace={latestTrace} agentName={agent.name} />
-        </div>
-      ) : (
-        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs">
+      {/* 2. Main Canvas: Chat View, Trace View, and Evals View (all kept mounted so state is never lost) */}
+      <div className={`flex-1 min-h-0 overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs bg-white/70 dark:bg-zinc-900/60 ${activeTab === 'evals' ? 'flex flex-col' : 'hidden'}`}>
+        <AgentEvalManager agentName={agent.name} />
+      </div>
+
+      <div className={`flex-1 min-h-0 overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs ${activeTab === 'trace' ? 'flex flex-col' : 'hidden'}`}>
+        <TraceViewer
+          trace={latestTrace}
+          agentName={agent.name}
+          onRefreshTrace={handleFetchLatestTrace}
+          isLoadingTrace={isLoadingTrace}
+        />
+      </div>
+
+      <div className={`flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden glass-card rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs ${activeTab === 'chat' ? '' : 'hidden'}`}>
         {/* Left: Chat Interaction Area */}
         <div className="flex-1 min-w-0 flex flex-col h-full bg-zinc-50/40 dark:bg-zinc-950/40 overflow-hidden">
           <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
@@ -647,139 +871,154 @@ export const AgentRunPage: React.FC = () => {
                     )}
 
                     <div className="flex flex-col max-w-[85%] min-w-0 space-y-2">
-                      {/* Traces Accordion */}
+                      {/* Essential Tool Activity Events (updates one-by-one) */}
                       {hasTraces && (
-                        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 overflow-hidden text-xs shadow-xs">
-                          <button
-                            type="button"
-                            onClick={() => toggleTraceExpansion(msg.id)}
-                            className="w-full flex items-center justify-between px-3 py-2 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Wrench className="w-3.5 h-3.5 text-zinc-500" />
-                              <span className="font-semibold text-[11px]">
-                                Tool Activity ({msg.traces!.length}{' '}
-                                {msg.traces!.length === 1 ? 'event' : 'events'})
-                              </span>
-                            </div>
-                            {isExpanded ? (
-                              <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
-                            ) : (
-                              <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
-                            )}
-                          </button>
+                        <div className="space-y-1.5 mb-1 w-full">
+                          {msg.traces!.map((trace) => {
+                            const isRunning = trace.status === 'running';
+                            const isError = trace.status === 'error';
+                            const isExpanded = expandedTraces[trace.id];
+                            const hasPayload =
+                              trace.input !== undefined || trace.output !== undefined;
 
-                          {isExpanded && (
-                            <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 space-y-2 bg-zinc-50/50 dark:bg-zinc-950/50 max-h-56 overflow-y-auto">
-                              {msg.traces!.map((trace) => (
-                                <div
-                                  key={trace.id}
-                                  className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800/70 text-[11px] font-mono"
+                              return (
+                                <motion.div
+                                  key={trace.id || `trace-${trace.timestamp}-${Math.random()}`}
+                                  initial={{ opacity: 0, y: 5, scale: 0.98 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  transition={{ duration: 0.2 }}
+                                  className={`rounded-xl border transition-all text-xs overflow-hidden ${
+                                    isRunning
+                                      ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/60 shadow-xs'
+                                      : isError
+                                      ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-900/60'
+                                      : 'bg-white/90 dark:bg-zinc-900/80 border-zinc-200/80 dark:border-zinc-800/80 shadow-xs'
+                                  }`}
                                 >
-                                  <div className="flex items-center gap-1.5 font-bold text-zinc-700 dark:text-zinc-300">
-                                    {trace.type === 'tool_call' && (
-                                      <span className="text-amber-500">▶ CALL</span>
-                                    )}
-                                    {trace.type === 'tool_result' && (
-                                      <span className="text-emerald-500">✔ RESULT</span>
-                                    )}
-                                    {trace.type === 'status' && (
-                                      <span className="text-blue-500">ℹ STATUS</span>
-                                    )}
-                                    {trace.type === 'step' && trace.step?.step_type === 'llm' && (
-                                      <span className="text-purple-500">❖ LLM</span>
-                                    )}
-                                    {trace.type === 'step' && trace.step?.step_type === 'tool' && (
-                                      <span className="text-amber-500">▶ TOOL</span>
-                                    )}
-                                    <span>{trace.summary}</span>
+                                  <div className="flex items-center justify-between px-3 py-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {isRunning ? (
+                                        <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin shrink-0" />
+                                      ) : isError ? (
+                                        <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                      ) : (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                      )}
+
+                                      <span
+                                        className={`font-semibold text-[11px] ${
+                                          isRunning
+                                            ? 'text-amber-700 dark:text-amber-300'
+                                            : isError
+                                            ? 'text-rose-600 dark:text-rose-400'
+                                            : 'text-zinc-600 dark:text-zinc-300'
+                                        }`}
+                                      >
+                                        {isRunning
+                                          ? 'Calling tool:'
+                                          : isError
+                                          ? 'Failed tool:'
+                                          : 'Finished tool:'}
+                                      </span>
+
+                                      <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 truncate max-w-[220px]">
+                                        {formatToolName(trace.tool || trace.summary)}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                                      {trace.duration && (
+                                        <span className="font-mono text-[10px] text-zinc-400 dark:text-zinc-500">
+                                          {trace.duration}
+                                        </span>
+                                      )}
+
+                                      {hasPayload && (
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleTraceExpansion(trace.id)}
+                                          className="p-0.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                                          title={isExpanded ? 'Hide Payload' : 'View Payload'}
+                                        >
+                                          {isExpanded ? (
+                                            <ChevronDown className="w-3.5 h-3.5" />
+                                          ) : (
+                                            <ChevronRight className="w-3.5 h-3.5" />
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
 
-                                  {(trace.input !== undefined || (trace.type === 'step' && trace.step?.input)) && (
-                                    <div className="mt-1 text-zinc-500 dark:text-zinc-400 break-all break-words overflow-hidden">
-                                      <span className="text-zinc-400 font-semibold">input: </span>
-                                      {typeof (trace.step?.input ?? trace.input) === 'object'
-                                        ? JSON.stringify(trace.step?.input ?? trace.input)
-                                        : String(trace.step?.input ?? trace.input)}
-                                    </div>
-                                  )}
-
-                                  {(trace.output !== undefined || (trace.type === 'step' && trace.step?.output)) && (
-                                    <div className="mt-1 text-zinc-500 dark:text-zinc-400 break-all break-words overflow-hidden">
-                                      <span className="text-zinc-400 font-semibold">output: </span>
-                                      {typeof (trace.step?.output ?? trace.output) === 'object'
-                                        ? JSON.stringify(trace.step?.output ?? trace.output)
-                                        : String(trace.step?.output ?? trace.output)}
-                                    </div>
-                                  )}
-
-                                  {trace.type === 'step' && trace.step?.content && trace.step.content.length > 0 && (
-                                    <div className="mt-2 space-y-1">
-                                      {trace.step.content.map((block: any, idx: number) => (
-                                        block.type === 'thinking' ? (
-                                          <div key={idx} className="p-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded border border-purple-100 dark:border-purple-800/30 text-[10px] italic">
-                                            <span className="font-semibold not-italic block mb-1">🤔 Thinking:</span>
-                                            {block.thinking || <span className="opacity-50">Thinking tokens generated but content redacted by provider</span>}
-                                          </div>
-                                        ) : null
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {trace.type === 'step' && trace.step?.token_usage && (
-                                    <div className="mt-2 flex gap-3 text-[10px] text-zinc-400 font-semibold">
-                                      <span>In: {trace.step.token_usage.input_tokens || trace.step.token_usage.prompt_tokens || 0}</span>
-                                      <span>Out: {trace.step.token_usage.output_tokens || trace.step.token_usage.completion_tokens || 0}</span>
-                                      {trace.step.token_usage?.output_token_details?.reasoning > 0 && (
-                                        <span className="text-purple-400">Reasoning: {trace.step.token_usage.output_token_details.reasoning}</span>
+                                  {/* Optional expandable payload */}
+                                  {isExpanded && hasPayload && (
+                                    <div className="px-3 pb-2.5 pt-1 border-t border-zinc-100 dark:border-zinc-800/80 text-[10.5px] font-mono space-y-1.5 bg-zinc-50/50 dark:bg-zinc-950/40">
+                                      {trace.input !== undefined && (
+                                        <div>
+                                          <span className="text-zinc-400 font-semibold">input: </span>
+                                          <span className="text-zinc-600 dark:text-zinc-300 break-all">
+                                            {safeStringify(trace.input)}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {trace.output !== undefined && (
+                                        <div>
+                                          <span className="text-zinc-400 font-semibold">output: </span>
+                                          <span className="text-zinc-600 dark:text-zinc-300 break-all">
+                                            {safeStringify(trace.output)}
+                                          </span>
+                                        </div>
                                       )}
                                     </div>
                                   )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Message Bubble */}
-                      {(msg.content || !isAgent || (!msg.error && !msg.isStreaming)) && (
-                        <div
-                          className={`px-4 py-3 rounded-2xl text-xs sm:text-sm whitespace-pre-wrap break-words break-all leading-relaxed ${
-                            isAgent
-                              ? 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-800 rounded-tl-sm shadow-xs'
-                              : 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-tr-sm self-end shadow-xs'
-                          }`}
-                        >
-                          {msg.content}
-                          {msg.isStreaming && (
-                            <span className="inline-block w-1.5 h-4 ml-1 bg-zinc-900 dark:bg-white animate-pulse align-middle" />
-                          )}
-                        </div>
-                      )}
-
-                      {/* Initial streaming placeholder */}
-                      {msg.isStreaming && !msg.content && (
-                        <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-tl-sm flex items-center gap-2 text-xs text-zinc-500 shadow-xs">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
-                          <span>
-                            {activeTool ? `Executing ${activeTool}...` : 'Generating response...'}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Error display */}
-                      {msg.error && (
-                        <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
-                          <div>
-                            <p className="font-semibold">Error</p>
-                            <p className="mt-0.5 whitespace-pre-wrap font-mono text-[11px]">
-                              {msg.error}
-                            </p>
+                                </motion.div>
+                              );
+                            })}
                           </div>
-                        </div>
-                      )}
+                        )}
+
+                        {/* Message Bubble */}
+                        {(msg.content || !isAgent || (!msg.error && !msg.isStreaming)) && (
+                          <div
+                            className={`px-4 py-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                              isAgent
+                                ? 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-800/80 rounded-tl-sm shadow-xs w-full'
+                                : 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-tr-sm self-end shadow-xs whitespace-pre-wrap break-words'
+                            }`}
+                          >
+                            {isAgent ? (
+                              <div className="relative">
+                                <MarkdownRenderer content={msg.content} />
+                                {msg.isStreaming && (
+                                  <span className="inline-block w-1.5 h-4 ml-1 bg-zinc-900 dark:bg-white animate-pulse align-middle" />
+                                )}
+                              </div>
+                            ) : (
+                              <span className="whitespace-pre-wrap">{formatMessageContent(msg.content)}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Initial streaming placeholder */}
+                        {msg.isStreaming && !msg.content && (!msg.traces || msg.traces.length === 0) && (
+                          <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-tl-sm flex items-center gap-2 text-xs text-zinc-500 shadow-xs">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
+                            <span>Thinking...</span>
+                          </div>
+                        )}
+
+                        {/* Error display */}
+                        {msg.error && (
+                          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                            <div>
+                              <p className="font-semibold">Error</p>
+                              <p className="mt-0.5 whitespace-pre-wrap font-mono text-[11px]">
+                                {typeof msg.error === 'string' ? msg.error : safeStringify(msg.error)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                     </div>
 
                     {!isAgent && (
@@ -872,7 +1111,6 @@ export const AgentRunPage: React.FC = () => {
           </div>
         </div>
       </div>
-      )}
     </div>
   );
 };
