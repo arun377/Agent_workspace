@@ -69,7 +69,7 @@ export const EvalRunnerPanel: React.FC<EvalRunnerPanelProps> = ({
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return ['step_efficiency', 'task_completion'];
+    return ['step_efficiency', 'task_completion', 'error_recovery', 'plan_adherence', 'plan_quality'];
   });
 
   const [inputs, setInputs] = useState<string[]>(() => {
@@ -118,7 +118,7 @@ export const EvalRunnerPanel: React.FC<EvalRunnerPanelProps> = ({
     setEvalType(newType);
     setError(null);
     if (newType === 'non_deterministic') {
-      setSelectedMetrics(['step_efficiency', 'task_completion']);
+      setSelectedMetrics(['step_efficiency', 'task_completion', 'error_recovery', 'plan_adherence', 'plan_quality']);
     } else {
       setSelectedMetrics(['correctness', 'tool_correctness']);
     }

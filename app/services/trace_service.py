@@ -10,7 +10,13 @@ logger = logging.getLogger(__name__)
 def is_langsmith_enabled() -> bool:
     tracing = os.environ.get("LANGCHAIN_TRACING_V2", "").lower() in ("true", "1")
     api_key = os.environ.get("LANGCHAIN_API_KEY", "").strip()
-    return tracing and bool(api_key)
+    enabled = tracing and bool(api_key)
+    if not enabled:
+        logger.warning(
+            f"[TRACE_SERVICE] LangSmith tracing disabled: LANGCHAIN_TRACING_V2={tracing}, "
+            f"has_api_key={bool(api_key)}"
+        )
+    return enabled
 
 def _format_tokens(run: Any) -> Dict[str, int]:
     tokens = {}
@@ -68,25 +74,34 @@ def _build_tree_recursive(node_map: Dict[str, Dict[str, Any]], parent_children_m
 def fetch_langsmith_trace_tree(
     agent_name: str, 
     start_time: datetime.datetime, 
-    max_retries: int = 4, 
-    retry_delay: float = 1.0
+    max_retries: int = 10, 
+    retry_delay: float = 2.0,
+    initial_wait: float = 2.0,
 ) -> Optional[Dict[str, Any]]:
     """
     Fetches the hierarchical run tree from LangSmith for the agent execution that started at start_time.
     Retries up to max_retries to handle LangSmith ingestion latency.
     """
     if not is_langsmith_enabled():
+        logger.warning("[TRACE_SERVICE] Cannot fetch trace: LangSmith is disabled or missing credentials.")
         return None
 
     try:
         from langsmith import Client
         client = Client()
     except Exception as e:
-        logger.warning(f"Failed to initialize LangSmith Client: {e}")
+        logger.error(f"[TRACE_SERVICE] Failed to initialize LangSmith Client: {e}")
         return None
 
     project_name = os.environ.get("LANGCHAIN_PROJECT", "default")
     filter_start = start_time - datetime.timedelta(seconds=5)
+    logger.info(
+        f"[TRACE_SERVICE] Fetching trace tree for agent='{agent_name}', "
+        f"project='{project_name}', start_time={start_time.isoformat()} (filter_start={filter_start.isoformat()})"
+    )
+
+    if initial_wait > 0:
+        time.sleep(initial_wait)
 
     root_run = None
     for attempt in range(max_retries):
@@ -98,19 +113,51 @@ def fetch_langsmith_trace_tree(
                 start_time=filter_start,
                 limit=10
             ))
+            logger.info(
+                f"[TRACE_SERVICE] Attempt {attempt + 1}/{max_retries}: Found {len(runs)} candidate root run(s)"
+            )
             if runs:
-                # Find the most recent run matching or after start_time
-                runs.sort(key=lambda r: r.start_time or datetime.datetime.min, reverse=True)
-                root_run = runs[0]
+                # Find runs matching agent name or LangGraph
+                matching_runs = [
+                    r for r in runs 
+                    if getattr(r, "name", "") in (agent_name, "LangGraph") 
+                    or (r.extra and r.extra.get("metadata", {}).get("agent_name") == agent_name)
+                ]
+                candidates = matching_runs if matching_runs else runs
+                candidates.sort(key=lambda r: r.start_time or datetime.datetime.min, reverse=True)
+                root_run = candidates[0]
+                logger.info(
+                    f"[TRACE_SERVICE] Matched root run id='{root_run.id}', name='{root_run.name}', "
+                    f"run_type='{root_run.run_type}', start_time={root_run.start_time}"
+                )
                 break
         except Exception as err:
-            logger.debug(f"LangSmith list_runs attempt {attempt + 1} failed: {err}")
+            logger.warning(f"[TRACE_SERVICE] LangSmith list_runs attempt {attempt + 1} failed: {err}")
         
         if attempt < max_retries - 1:
             time.sleep(retry_delay)
 
+    # Fallback: check latest root runs in case start_time filter had clock skew
     if not root_run:
-        logger.info(f"No LangSmith root run found for {agent_name} after {max_retries} attempts.")
+        try:
+            fallback_runs = list(client.list_runs(project_name=project_name, is_root=True, limit=5))
+            recent_candidates = [
+                r for r in fallback_runs
+                if (not r.start_time or r.start_time >= filter_start - datetime.timedelta(seconds=15))
+                and getattr(r, "name", "") in (agent_name, "LangGraph")
+            ]
+            if recent_candidates:
+                recent_candidates.sort(key=lambda r: r.start_time or datetime.datetime.min, reverse=True)
+                root_run = recent_candidates[0]
+                logger.info(
+                    f"[TRACE_SERVICE] Matched root run via fallback: id='{root_run.id}', "
+                    f"name='{root_run.name}', start_time={root_run.start_time}"
+                )
+        except Exception as e:
+            logger.warning(f"[TRACE_SERVICE] Fallback query failed: {e}")
+
+    if not root_run:
+        logger.warning(f"[TRACE_SERVICE] No LangSmith root run found for {agent_name} after {max_retries} attempts.")
         return None
 
     # Fetch all child runs belonging to this trace
@@ -120,16 +167,24 @@ def fetch_langsmith_trace_tree(
         try:
             all_runs = list(client.list_runs(trace_id=trace_id))
             if len(all_runs) > 0:
+                logger.info(f"[TRACE_SERVICE] Retrieved {len(all_runs)} span(s) for trace_id={trace_id}")
                 break
         except Exception as e:
-            logger.debug(f"LangSmith trace_id query attempt {attempt + 1} failed: {e}")
+            logger.warning(f"[TRACE_SERVICE] LangSmith trace_id query attempt {attempt + 1} failed: {e}")
         if attempt < max_retries - 1:
             time.sleep(retry_delay)
 
     if not all_runs:
         all_runs = [root_run]
 
-    return _build_tree_from_runs(all_runs, root_run, agent_name)
+    tree = _build_tree_from_runs(all_runs, root_run, agent_name)
+    if tree:
+        logger.info(
+            f"[TRACE_SERVICE] Successfully constructed trace tree for '{agent_name}' with root '{tree.get('name')}'"
+        )
+    else:
+        logger.warning(f"[TRACE_SERVICE] Failed to construct trace tree for root_id='{root_run.id}'")
+    return tree
 
 def _build_tree_from_runs(
     all_runs: List[Any], 
@@ -177,6 +232,10 @@ def _build_tree_from_runs(
 
     # Construct the recursive tree starting from root_id
     tree = _build_tree_recursive(node_map, parent_children_map, root_id)
+    tool_nodes = [n["name"] for n in node_map.values() if n["run_type"] == "tool"]
+    logger.info(
+        f"[TRACE_SERVICE] Tree built: total_nodes={len(node_map)}, tool_calls={tool_nodes}"
+    )
     return tree
 
 def get_latest_agent_trace(agent_name: str) -> Optional[Dict[str, Any]]:

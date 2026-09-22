@@ -15,9 +15,15 @@ from app.api.routes import eval
 
 
 
-load_dotenv()
+import logging
 
-app= FastAPI()
+load_dotenv()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,

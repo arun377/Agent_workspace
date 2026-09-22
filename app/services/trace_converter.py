@@ -64,6 +64,8 @@ def convert_langsmith_tree_to_trace_dict(
     converted: Dict[str, Any] = {
         "name": node.get("name", "unknown"),
         "type": deepeval_type,
+        "status": node.get("status"),
+        "error": node.get("error"),
         "input": node.get("inputs"),
         "output": output_val,
         "children": [

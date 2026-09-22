@@ -19,7 +19,7 @@ def make_agent_fn(agent_name: str):
                 or result.get("result")
                 or str(result)
             )
-            raise RuntimeError(f"Agent execution failed: {err_msg}")
+            raise RuntimeError(err_msg)
 
         # Extract answer defensively across different agent template formats
         agent_result = result.get("result")

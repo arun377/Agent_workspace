@@ -3,6 +3,8 @@ from litellm import completion, acompletion
 from deepeval.models.base_model import DeepEvalBaseLLM
 from deepeval.metrics import TaskCompletionMetric, GEval , ToolCorrectnessMetric, HallucinationMetric
 from deepeval.metrics.step_efficiency import StepEfficiencyMetric
+from deepeval.metrics.plan_adherence import PlanAdherenceMetric
+from deepeval.metrics.plan_quality import PlanQualityMetric
 from deepeval.test_case import LLMTestCaseParams
 
 
@@ -56,6 +58,34 @@ def build_deterministic_metrics(metric_names: list[str], judge_model) -> list:
     return [available[name]() for name in metric_names if name in available]
 
 
+def _build_error_recovery_metric(judge_model) -> GEval:
+    m = GEval(
+        name="Agent Error Recovery",
+        criteria=(
+            "Evaluate how well the AI agent recovers from tool failures, syntax errors, or denied access. "
+            "The agent must detect the error, read the message, and actively change its approach instead of "
+            "ignoring it, guessing, or looping."
+        ),
+        evaluation_steps=[
+            "Scan the LangSmith execution trace in 'input' for any error messages returned by tools or code execution.",
+            "If NO errors occurred, award a score of 1.0.",
+            "If an error occurred, examine the agent's immediate next action.",
+            "Award 0.0 if the agent crashes, ignores the error, or repeats the exact same failing action.",
+            "Award 0.5 if the agent stops using tools and just guesses the answer using its internal memory.",
+            "Award 1.0 if the agent reads the error and tries a valid fix (e.g., rewrites the code, uses a different tool, or clearly explains the failure to the user).",
+        ],
+        evaluation_params=[
+            LLMTestCaseParams.INPUT,
+            LLMTestCaseParams.ACTUAL_OUTPUT,
+        ],
+        threshold=0.5,
+        model=judge_model,
+        async_mode=False,
+    )
+    m.requires_trace = True
+    return m
+
+
 def build_non_deterministic_metrics(metric_names: list[str], judge_model) -> list:
     available = {
         "task_completion": lambda: TaskCompletionMetric(threshold=0.7, model=judge_model),
@@ -65,6 +95,17 @@ def build_non_deterministic_metrics(metric_names: list[str], judge_model) -> lis
             model=judge_model,
             async_mode=False,
         ),
+        "plan_adherence": lambda: PlanAdherenceMetric(
+            threshold=0.5,
+            model=judge_model,
+            async_mode=False,
+        ),
+        "plan_quality": lambda: PlanQualityMetric(
+            threshold=0.5,
+            model=judge_model,
+            async_mode=False,
+        ),
+        "error_recovery": lambda: _build_error_recovery_metric(judge_model),
     }
     metrics = []
     for name in metric_names:

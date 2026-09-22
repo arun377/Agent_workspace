@@ -1,7 +1,7 @@
 export type EvalType = 'non_deterministic' | 'deterministic';
 
 export type DeterministicMetricKey = 'correctness' | 'tool_correctness';
-export type NonDeterministicMetricKey = 'step_efficiency' | 'task_completion' | 'hallucination';
+export type NonDeterministicMetricKey = 'step_efficiency' | 'task_completion' | 'hallucination' | 'error_recovery' | 'plan_adherence' | 'plan_quality';
 
 export type MetricKey = DeterministicMetricKey | NonDeterministicMetricKey;
 
@@ -28,10 +28,31 @@ export const METRIC_DEFINITIONS: Record<MetricKey, MetricDefinition> = {
     defaultThreshold: 0.7,
     evalType: 'non_deterministic',
   },
+  error_recovery: {
+    key: 'error_recovery',
+    label: 'Error Recovery',
+    description: 'Evaluates how well the agent detects and recovers from tool failures, access denials, or syntax errors instead of looping or guessing.',
+    defaultThreshold: 0.5,
+    evalType: 'non_deterministic',
+  },
   hallucination: {
     key: 'hallucination',
     label: 'Hallucination Check',
     description: 'Checks if agent statements are factually grounded in context without fabricating information.',
+    defaultThreshold: 0.5,
+    evalType: 'non_deterministic',
+  },
+  plan_adherence: {
+    key: 'plan_adherence',
+    label: 'Plan Adherence',
+    description: 'Evaluates if the agent actually followed its stated plan during execution.',
+    defaultThreshold: 0.5,
+    evalType: 'non_deterministic',
+  },
+  plan_quality: {
+    key: 'plan_quality',
+    label: 'Plan Quality',
+    description: 'Evaluates whether the agent\'s plan itself was well-structured, logical, and complete.',
     defaultThreshold: 0.5,
     evalType: 'non_deterministic',
   },
