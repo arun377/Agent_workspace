@@ -14,6 +14,7 @@ def create_export_bundle(agent_name: str, export_root: Path = Path("exported_age
     # 1. Inline Tools: Copy tools folder to make the bundle independent of app/
     tools_dir = bundle_dir / "tools"
     tools_dir.mkdir(exist_ok=True)
+    (tools_dir / "__init__.py").touch()
     shutil.copy("app/tools/builtin/builtin.py", tools_dir / "builtin.py")
     shutil.copy("app/tools/mcp_servers.py", tools_dir / "mcp_servers.py")
 

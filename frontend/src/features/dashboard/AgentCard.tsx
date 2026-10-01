@@ -21,6 +21,8 @@ import {
   Settings,
   Eye,
   FlaskConical,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { Agent, Tool } from '../../types/agent';
 import { useAgentStore } from '../../store/useAgentStore';
@@ -60,10 +62,26 @@ export const AgentCard: React.FC<AgentCardProps> = ({
   onDeleteRequest,
 }) => {
   const navigate = useNavigate();
-  const { duplicateAgent } = useAgentStore();
+  const { duplicateAgent, exportAgent } = useAgentStore();
   const { showToast } = useToast();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    setIsExporting(true);
+    try {
+      showToast('Exporting Agent', `Preparing zip bundle for ${agent.name}...`, 'info');
+      await exportAgent(agent.name || agent.id);
+      showToast('Agent Exported', `Downloaded ${agent.name || agent.id}_bundle.zip`, 'success');
+    } catch (err: any) {
+      showToast('Export Failed', err.message || 'Failed to export agent bundle', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleDuplicate = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -184,6 +202,20 @@ export const AgentCard: React.FC<AgentCardProps> = ({
                       >
                         <Copy className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                         <span>Duplicate</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                      >
+                        {isExporting ? (
+                          <Loader2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 animate-spin" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                        )}
+                        <span>{isExporting ? 'Exporting...' : 'Export Agent'}</span>
                       </button>
 
                       <div className="my-1 border-t border-zinc-100 dark:border-zinc-800" />

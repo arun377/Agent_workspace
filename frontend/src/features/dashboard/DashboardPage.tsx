@@ -22,6 +22,8 @@ import {
   Trash2,
   Eye,
   FlaskConical,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { useAgentStore } from '../../store/useAgentStore';
 import { Agent, Tool } from '../../types/agent';
@@ -42,6 +44,7 @@ export const DashboardPage: React.FC = () => {
     duplicateAgent,
     fetchAgents,
     fetchTools,
+    exportAgent,
   } = useAgentStore();
   const { showToast } = useToast();
 
@@ -70,6 +73,21 @@ export const DashboardPage: React.FC = () => {
 
   // Menu dropdown for table view rows
   const [tableMenuOpenId, setTableMenuOpenId] = useState<string | null>(null);
+  const [exportingAgentId, setExportingAgentId] = useState<string | null>(null);
+
+  const handleExport = async (agent: Agent) => {
+    setTableMenuOpenId(null);
+    setExportingAgentId(agent.id);
+    try {
+      showToast('Exporting Agent', `Preparing zip bundle for ${agent.name}...`, 'info');
+      await exportAgent(agent.name || agent.id);
+      showToast('Agent Exported', `Downloaded ${agent.name || agent.id}_bundle.zip`, 'success');
+    } catch (err: any) {
+      showToast('Export Failed', err.message || 'Failed to export agent bundle', 'error');
+    } finally {
+      setExportingAgentId(null);
+    }
+  };
 
   // Close inspector on Escape key
   useEffect(() => {
@@ -546,6 +564,19 @@ export const DashboardPage: React.FC = () => {
                                       >
                                         <Copy className="w-3.5 h-3.5" />
                                         <span>Duplicate</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleExport(agent)}
+                                        disabled={exportingAgentId === agent.id}
+                                        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
+                                      >
+                                        {exportingAgentId === agent.id ? (
+                                          <Loader2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 animate-spin" />
+                                        ) : (
+                                          <Download className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                                        )}
+                                        <span>{exportingAgentId === agent.id ? 'Exporting...' : 'Export Agent'}</span>
                                       </button>
                                       <div className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
                                       <button

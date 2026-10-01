@@ -233,6 +233,7 @@ def update_eval_case(name: str, index: int, request: EvalDataUpdateRequest):
 
 
 @router.post("/{name}/export")
+@router.get("/{name}/export")
 def export_agent(name: str, download: bool = False):
     try:
         bundle_dir = create_export_bundle(agent_name=name)

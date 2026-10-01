@@ -18,6 +18,7 @@ interface AgentState {
   duplicateAgent: (id: string) => Agent | null;
   deleteAgent: (id: string) => void;
   toggleAgentStatus: (id: string) => void;
+  exportAgent: (name: string) => Promise<void>;
 }
 
 const AVATAR_GRADIENTS = [
@@ -388,5 +389,33 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
 
       toggleAgentStatus: (id) => {
         // All agents remain published
+      },
+
+      exportAgent: async (name: string) => {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+        const response = await fetch(`${baseUrl}/agents/${encodeURIComponent(name)}/export?download=true`, {
+          method: 'POST',
+        });
+
+        if (!response.ok) {
+          let errorMessage = 'Failed to export agent';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.detail || errorMessage;
+          } catch {
+            errorMessage = `Export failed with status ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${name}_bundle.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
       },
 }));
